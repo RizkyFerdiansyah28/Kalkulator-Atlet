@@ -1,0 +1,353 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f3f4f6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+header {
+    background: linear-gradient(to right, #2563eb, #1e40af);
+    color: white;
+    padding: 1.5rem 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+nav {
+    background-color: white;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.nav-button {
+    padding: 1rem 1.5rem;
+    font-weight: 500;
+    color: #4b5563;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.nav-button:hover {
+    color: #2563eb;
+}
+
+.nav-button.active {
+    color: #2563eb;
+    border-bottom: 2px solid #2563eb;
+}
+
+main {
+    padding: 2rem 0;
+}
+
+/* Dashboard Styles */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid;
+}
+
+.stat-card-blue { background-color: #eff6ff; border-color: #bfdbfe; }
+.stat-card-green { background-color: #ecfdf5; border-color: #a7f3d0; }
+.stat-card-purple { background-color: #f5f3ff; border-color: #ddd6fe; }
+.stat-card-orange { background-color: #fff7ed; border-color: #fed7aa; }
+
+.stat-card p { margin: 0; }
+.stat-card .label { font-size: 0.875rem; font-weight: 500; }
+.stat-card .value { font-size: 2rem; font-weight: bold; margin-top: 0.25rem; }
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .chart-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.panel {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.panel h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+/* Table Styles */
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background-color: #f9fafb;
+}
+
+th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.status-excellent { background-color: #d1fae5; color: #065f46; }
+.status-good { background-color: #dbeafe; color: #1e40af; }
+.status-need { background-color: #fee2e2; color: #991b1b; }
+
+.detail-button {
+    color: #2563eb;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.form-input, .form-select {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary { background-color: #2563eb; color: white; }
+.btn-primary:hover { background-color: #1d4ed8; }
+.btn-success { background-color: #10b981; color: white; }
+.btn-success:hover { background-color: #059669; }
+
+.result-box {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(to right, #eff6ff, #ecfdf5);
+    border: 2px solid #bfdbfe;
+    border-radius: 0.5rem;
+}
+
+.result-item {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.result-item .label { font-size: 0.875rem; color: #4b5563; margin-bottom: 0.25rem; }
+.result-item .value { font-size: 2rem; font-weight: bold; }
+.result-item .status { font-size: 1.5rem; font-weight: bold; }
+
+.text-blue-600 { color: #2563eb; }
+.text-green-600 { color: #10b981; }
+.text-red-600 { color: #ef4444; }
+
+/* History Styles */
+.back-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+}
+
+.training-detail {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: box-shadow 0.3s;
+}
+
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 1rem;
+}
+
+.history-item p { margin: 0; }
+.history-item .label { font-size: 0.75rem; color: #6b7280; }
+.history-item .value { font-size: 0.875rem; font-weight: 600; }
+.history-item .perf-score { color: #2563eb; }
+
+/* Tambahkan kode ini di bagian bawah style.css Anda */
+
+.alert-box {
+    padding: 1rem; 
+    background-color: #dbeafe; 
+    border: 1px solid #93c5fd; 
+    color: #1e40af; 
+    border-radius: 0.5rem; 
+    margin-bottom: 1rem;
+}
+
+/* Styling Khusus Tabel Input Latihan */
+.input-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.input-table th, .input-table td {
+    border: 1px solid #e5e7eb;
+    padding: 8px;
+    vertical-align: middle;
+}
+.table-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.rest-row td {
+    background-color: #fff7ed;
+}
+
+
+/* Tambahan CSS untuk IOD */
+
+.iod-highlight {
+    font-size: 4rem;
+    font-weight: 800;
+    color: #7c3aed; /* Warna Ungu Mencolok */
+    margin: 0;
+    line-height: 1;
+    text-shadow: 2px 2px 0px #ddd6fe;
+}
+
+.input-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.input-table th, .input-table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    vertical-align: middle;
+}
+
+.table-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.25rem;
+    box-sizing: border-box;
+}
+
+.rest-row td {
+    background-color: #fff7ed;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+
+/* Tambahan CSS untuk Klasifikasi IOD */
+
+.iod-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+}
+
+/* Warna-warni Klasifikasi */
+.badge-very-low { background-color: #e5e7eb; color: #374151; border: 1px solid #d1d5db; } /* Abu-abu */
+.badge-low { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; } /* Hijau Muda */
+.badge-medium { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; } /* Kuning/Oranye */
+.badge-hard { background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; } /* Oranye Tua */
+.badge-maximum { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; } /* Merah */
+.badge-super-maximal { 
+    background: linear-gradient(135deg, #7c3aed, #db2777); 
+    color: white; 
+    border: none;
+    box-shadow: 0 2px 4px rgba(124, 58, 237, 0.3);
+} /* Ungu Gradasi */
+
+.iod-highlight {
+    font-size: 4rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+    line-height: 1;
+}
