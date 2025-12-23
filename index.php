@@ -116,6 +116,34 @@ $filteredIodCategories = count_iod_categories($athletesForPie);
 $pieChartData = generate_pie_chart_data($filteredIodCategories);
 $monthlyAvgChartData = generate_monthly_average_chart_data($athletes);
 
+// --- Logic Top 5 Atlet (Highest IOD Ever) ---
+$topAthletes = [];
+foreach ($athletes as $a) {
+    $maxIod = 0;
+    if (!empty($a['trainings'])) {
+        foreach ($a['trainings'] as $t) {
+            $val = isset($t['iod']) ? (float)$t['iod'] : ((isset($t['performance']) && is_numeric($t['performance'])) ? (float)$t['performance'] : 0);
+            if ($val > $maxIod) $maxIod = $val;
+        }
+    }
+    // Fallback ke lastPerformance jika history kosong
+    $lastPerf = (float)$a['lastPerformance'];
+    if ($lastPerf > $maxIod) $maxIod = $lastPerf;
+
+    if ($maxIod > 0) {
+        $topAthletes[] = ['name' => $a['name'], 'max_iod' => $maxIod];
+    }
+}
+usort($topAthletes, function($a, $b) {
+    return $b['max_iod'] <=> $a['max_iod'];
+});
+$top5Athletes = array_slice($topAthletes, 0, 5);
+$top5ChartData = [['Atlet', 'Max IOD']];
+foreach ($top5Athletes as $item) {
+    $top5ChartData[] = [explode(' ', $item['name'])[0], $item['max_iod']];
+}
+$top5Json = json_encode($top5ChartData);
+
 // --- FUNGSI CHART HELPER ---
 function generate_google_chart_data($data) {
     $data_array = [['Atlet', 'IOD Terakhir']];
@@ -199,6 +227,7 @@ function generate_monthly_average_chart_data($athletes) {
             if (document.getElementById('line_chart_div')) drawLineChart();
             if (document.getElementById('pie_chart_div')) drawPieChart();
             if (document.getElementById('avg_iod_chart_div')) drawAvgIodChart();
+            if (document.getElementById('top5_chart_div')) drawTop5Chart();
         }
         
         function drawBarChart() {
@@ -276,6 +305,27 @@ function generate_monthly_average_chart_data($athletes) {
             var chart = new google.visualization.AreaChart(document.getElementById('avg_iod_chart_div'));
             chart.draw(data, options);
         }
+
+        function drawTop5Chart() {
+            var jsonData = <?php echo $top5Json; ?>;
+            if (jsonData.length <= 1) {
+                document.getElementById('top5_chart_div').innerHTML = "<div style='text-align: center; padding: 4rem 1rem; color: #64748b;'><p>Belum ada data latihan.</p></div>";
+                return;
+            }
+            var data = new google.visualization.arrayToDataTable(jsonData);
+            
+            var options = { 
+                title: 'Top 5 Atlet (Rekor IOD Tertinggi)',
+                titleTextStyle: { color: '#f1f5f9', fontSize: 16 },
+                backgroundColor: chartBgColor,
+                legend: { position: 'none' }, 
+                colors: ['#e11d48'], 
+                hAxis: { title: 'Skor IOD Tertinggi', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 },
+                vAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor }
+            };
+            var chart = new google.visualization.BarChart(document.getElementById('top5_chart_div'));
+            chart.draw(data, options);
+        }
     </script>
 </head>
 <body>
@@ -297,6 +347,20 @@ function generate_monthly_average_chart_data($athletes) {
         <?php if ($message): ?><div class="alert-box"><?= htmlspecialchars($message) ?></div><?php endif; ?>
 
         <?php if ($currentPage === 'dashboard'): ?>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="panel" style="margin-bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <h3 style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; margin-bottom: 0.5rem;">Total Atlet</h3>
+                    <p style="font-size: 2.5rem; font-weight: 800; margin: 0; color: var(--text-main); line-height: 1;"><?= $stats['totalAthletes'] ?></p>
+                </div>
+                <div class="panel" style="margin-bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <h3 style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; margin-bottom: 0.5rem;">Total Pengamat</h3>
+                    <p style="font-size: 2.5rem; font-weight: 800; margin: 0; color: var(--text-main); line-height: 1;"><?= count($allObservers) ?></p>
+                </div>
+                <div class="panel" style="margin-bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <h3 style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; margin-bottom: 0.5rem;">Rata-rata IOD Global</h3>
+                    <p style="font-size: 2.5rem; font-weight: 800; margin: 0; color: var(--primary); line-height: 1;"><?= $stats['avgIOD'] ?></p>
+                </div>
+            </div>
             <div class="chart-grid">
                 <div class="panel">
                     <h3>Grafik IOD (Index of Difficulty) Atlet Terakhir</h3>
@@ -332,6 +396,11 @@ function generate_monthly_average_chart_data($athletes) {
             <div class="panel" style="margin-top: 1.5rem;">
                 <h3>Perkembangan Rata-rata IOD Global</h3>
                 <div id="avg_iod_chart_div" style="width: 100%; height: 350px;"></div>
+            </div>
+
+            <div class="panel" style="margin-top: 1.5rem;">
+                <h3>Top 5 Atlet (Rekor IOD Tertinggi)</h3>
+                <div id="top5_chart_div" style="width: 100%; height: 350px;"></div>
             </div>
             
             <?php elseif ($currentPage === 'list_athlete'): ?>
