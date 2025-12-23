@@ -5,6 +5,30 @@ include 'functions.php';
 $currentPage = $_GET['page'] ?? 'dashboard';
 $selectedAthlete = null;
 
+// --- Logic Global untuk Data Pendukung ---
+// 1. Ambil daftar Cabor unik dari data atlet
+$uniqueSports = [];
+if (!empty($athletes)) {
+    $sports = array_column($athletes, 'sport');
+    $uniqueSports = array_unique(array_filter($sports));
+    sort($uniqueSports);
+}
+
+// 2. Daftar Observer (Bawaan + yang sudah tersimpan di history jika ada yang custom)
+$definedObservers = ['Coach Budi', 'Coach Sarah', 'Coach Dimas'];
+// (Opsional: jika ingin mengambil observer unik dari riwayat latihan yang sudah ada)
+$historyObservers = [];
+foreach ($athletes as $a) {
+    if (!empty($a['trainings'])) {
+        foreach ($a['trainings'] as $t) {
+            if (!empty($t['observer'])) $historyObservers[] = $t['observer'];
+        }
+    }
+}
+$allObservers = array_unique(array_merge($definedObservers, $historyObservers));
+sort($allObservers);
+
+// --- Logic Detail Atlet ---
 if (isset($_GET['athlete_id'])) {
     $athleteId = (int)$_GET['athlete_id'];
     if (isset($athletes[$athleteId])) {
@@ -13,7 +37,6 @@ if (isset($_GET['athlete_id'])) {
     }
 }
 
-$observers = ['Coach Budi', 'Coach Sarah', 'Coach Dimas'];
 $message = null;
 $calculatedResult = null;
 
@@ -22,17 +45,14 @@ function getBadgeClass($status) {
     return "badge-$slug";
 }
 
+// --- HANDLER POST REQUEST ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (isset($_POST['submit_athlete'])) {
         $message = add_new_athlete($_POST);
-        $athletes = $_SESSION['athletes'];
-        $stats = get_statistics($athletes); 
-        $performanceData = array_map(function($a) {
-            return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
-        }, $athletes);
-        $iodCategoriesData = count_iod_categories($athletes);
-        $currentPage = 'dashboard';
+        $athletes = $_SESSION['athletes']; // Refresh data
+        // Redirect ke daftar atlet setelah input
+        $currentPage = 'list_athlete';
     }
 
     elseif (isset($_POST['calculate']) || isset($_POST['submit_training'])) {
@@ -76,21 +96,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($message === 'Data latihan berhasil disimpan!') {
                 $calculatedResult = null;
                 $_POST = [];
-                $athletes = $_SESSION['athletes'];
-                // Update data setelah submit latihan
-                $stats = get_statistics($athletes); 
-                $performanceData = array_map(function($a) {
-                    return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
-                }, $athletes);
-                $iodCategoriesData = count_iod_categories($athletes);
+                $athletes = $_SESSION['athletes']; // Refresh data
             }
         }
         $currentPage = 'form';
     }
 }
 
-// --- FUNGSI CHART ---
+// --- PERSIAPAN DATA DASHBOARD & CHART ---
+// Update statistik setiap kali halaman dimuat
+$stats = get_statistics($athletes); 
+$performanceData = array_map(function($a) {
+    return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
+}, $athletes);
 
+// Filter Chart Dashboard (Hanya untuk Pie Chart)
+$selectedSportFilterChart = $_GET['chart_sport_filter'] ?? '';
+$athletesForPie = $athletes;
+if (!empty($selectedSportFilterChart)) {
+    $athletesForPie = array_filter($athletes, function($a) use ($selectedSportFilterChart) {
+        return isset($a['sport']) && strcasecmp($a['sport'], $selectedSportFilterChart) === 0;
+    });
+}
+$filteredIodCategories = count_iod_categories($athletesForPie);
+$pieChartData = generate_pie_chart_data($filteredIodCategories);
+
+// --- FUNGSI CHART HELPER ---
 function generate_google_chart_data($data) {
     $data_array = [['Atlet', 'IOD Terakhir']];
     foreach ($data as $item) { 
@@ -118,36 +149,6 @@ function generate_pie_chart_data($data) {
     }
     return json_encode($data_array);
 }
-
-// --- LOGIKA FILTER CABOR PIE CHART (BARU) ---
-
-// 1. Ambil daftar Cabor unik dari data atlet
-$uniqueSports = [];
-if (!empty($athletes)) {
-    $sports = array_column($athletes, 'sport');
-    // Bersihkan data kosong dan duplikat
-    $uniqueSports = array_unique(array_filter($sports));
-    sort($uniqueSports); // Urutkan abjad
-}
-
-// 2. Cek apakah ada filter yang dipilih user
-$selectedSportFilter = $_GET['sport_filter'] ?? '';
-
-// 3. Filter data atlet khusus untuk Pie Chart
-$athletesForPie = $athletes;
-if (!empty($selectedSportFilter)) {
-    $athletesForPie = array_filter($athletes, function($a) use ($selectedSportFilter) {
-        // Pastikan key 'sport' ada dan cocok (case insensitive untuk keamanan)
-        return isset($a['sport']) && strcasecmp($a['sport'], $selectedSportFilter) === 0;
-    });
-}
-
-// 4. Hitung ulang kategori IOD berdasarkan data yang difilter
-$filteredIodCategories = count_iod_categories($athletesForPie);
-
-// 5. Generate JSON untuk chart
-$pieChartData = generate_pie_chart_data($filteredIodCategories);
-
 ?>
 
 <!DOCTYPE html>
@@ -200,11 +201,9 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
         function drawPieChart() {
             var jsonData = <?php echo $pieChartData; ?>;
             var data = new google.visualization.arrayToDataTable(jsonData);
-            
             var pieColors = ['#db2777', '#991b1b', '#c2410c', '#92400e', '#065f46', '#374151']; 
-
             var options = { 
-                title: 'Distribusi Kategori IOD <?= $selectedSportFilter ? "($selectedSportFilter)" : "" ?>', 
+                title: 'Distribusi Kategori IOD <?= $selectedSportFilterChart ? "($selectedSportFilterChart)" : "" ?>', 
                 sliceVisibilityThreshold: 0, 
                 colors: pieColors,
                 legend: { position: 'right', alignment: 'center' }
@@ -222,6 +221,7 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
         <div class="container">
             <div class="nav-buttons">
                 <a href="?page=dashboard" class="nav-button <?= $currentPage === 'dashboard' ? 'active' : '' ?>">Dashboard</a>
+                <a href="?page=list_athlete" class="nav-button <?= $currentPage === 'list_athlete' ? 'active' : '' ?>">Daftar Atlet</a>
                 <a href="?page=add_athlete" class="nav-button <?= $currentPage === 'add_athlete' ? 'active' : '' ?>">Input Atlet</a>
                 <a href="?page=form" class="nav-button <?= $currentPage === 'form' ? 'active' : '' ?>">Input Latihan</a>
             </div>
@@ -241,13 +241,12 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
                 <div class="panel">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <h3 style="margin-bottom: 0;">Total Kategori IOD</h3>
-                        
                         <form method="GET" action="" style="margin: 0;">
                             <input type="hidden" name="page" value="dashboard">
-                            <select name="sport_filter" onchange="this.form.submit()" class="form-select" style="padding: 0.25rem 2rem 0.25rem 0.5rem; font-size: 0.875rem; border-color: #cbd5e1; cursor: pointer;">
+                            <select name="chart_sport_filter" onchange="this.form.submit()" class="form-select" style="padding: 0.25rem 2rem 0.25rem 0.5rem; font-size: 0.875rem; border-color: #cbd5e1; cursor: pointer;">
                                 <option value="">Semua Cabor</option>
                                 <?php foreach ($uniqueSports as $sport): ?>
-                                    <option value="<?= htmlspecialchars($sport) ?>" <?= $selectedSportFilter === $sport ? 'selected' : '' ?>>
+                                    <option value="<?= htmlspecialchars($sport) ?>" <?= $selectedSportFilterChart === $sport ? 'selected' : '' ?>>
                                         <?= htmlspecialchars($sport) ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -257,36 +256,115 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
 
                     <?php if (array_sum($filteredIodCategories) > 0): ?>
                         <div id="pie_chart_div" style="width: 100%; height: 300px;"></div>
-                        <?php if($selectedSportFilter): ?>
-                            <p style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: -10px;">
-                                Menampilkan data untuk cabor: <strong><?= htmlspecialchars($selectedSportFilter) ?></strong>
-                            </p>
-                        <?php endif; ?>
                     <?php else: ?>
                         <div style="text-align: center; padding: 4rem 1rem; color: #64748b;">
-                            <p>Belum ada data latihan <?= $selectedSportFilter ? "untuk cabor <strong>$selectedSportFilter</strong>" : "" ?>.</p>
-                            <?php if($selectedSportFilter): ?>
-                                <a href="?page=dashboard" style="font-size: 0.875rem; color: #2563eb; text-decoration: none;">Reset Filter</a>
-                            <?php endif; ?>
+                            <p>Belum ada data latihan.</p>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
             
-            <div class="panel" style="margin-top: 1.5rem;">
-                <h3>Daftar Atlet</h3>
+            <?php elseif ($currentPage === 'list_athlete'): ?>
+            
+            <?php
+            // --- LOGIC FILTER UNTUK HALAMAN DAFTAR ATLET ---
+            $filterSport = $_GET['filter_sport'] ?? '';
+            $filterObserver = $_GET['filter_observer'] ?? '';
+            
+            $filteredAthletes = $athletes;
+
+            // 1. Filter by Cabor
+            if (!empty($filterSport)) {
+                $filteredAthletes = array_filter($filteredAthletes, function($a) use ($filterSport) {
+                    return isset($a['sport']) && strcasecmp($a['sport'], $filterSport) === 0;
+                });
+            }
+
+            // 2. Filter by Pengamat (Cek riwayat latihan atlet)
+            if (!empty($filterObserver)) {
+                $filteredAthletes = array_filter($filteredAthletes, function($a) use ($filterObserver) {
+                    if (empty($a['trainings'])) return false; // Skip jika belum ada latihan
+                    foreach ($a['trainings'] as $t) {
+                        if (isset($t['observer']) && $t['observer'] === $filterObserver) {
+                            return true; // Found match
+                        }
+                    }
+                    return false;
+                });
+            }
+            ?>
+
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.5rem; gap: 1rem;">
+                    <h3>Daftar Atlet</h3>
+                    
+                    <form method="GET" action="" style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="hidden" name="page" value="list_athlete">
+                        
+                        <div>
+                            <select name="filter_sport" class="form-select" style="width: 150px;">
+                                <option value="">- Semua Cabor -</option>
+                                <?php foreach ($uniqueSports as $sport): ?>
+                                    <option value="<?= htmlspecialchars($sport) ?>" <?= $filterSport === $sport ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($sport) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div>
+                            <select name="filter_observer" class="form-select" style="width: 150px;">
+                                <option value="">- Semua Pengamat -</option>
+                                <?php foreach ($allObservers as $obs): ?>
+                                    <option value="<?= htmlspecialchars($obs) ?>" <?= $filterObserver === $obs ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($obs) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem;">Filter</button>
+                        <?php if($filterSport || $filterObserver): ?>
+                            <a href="?page=list_athlete" class="btn" style="background: #e2e8f0; color: #333; padding: 0.5rem 1rem;">Reset</a>
+                        <?php endif; ?>
+                    </form>
+                </div>
+
                 <div class="table-container">
                     <table>
-                        <thead><tr><th>Nama</th><th>Cabor</th><th>IOD Terakhir</th><th>Aksi</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($athletes as $athlete): ?>
+                        <thead>
                             <tr>
-                                <td><?= htmlspecialchars($athlete['name']) ?></td>
-                                <td><?= htmlspecialchars($athlete['sport']) ?></td>
-                                <td><strong><?= number_format((float)$athlete['lastPerformance'], 2) ?></strong></td>
-                                <td><a href="?athlete_id=<?= $athlete['id'] ?>" class="detail-button">Lihat Detail</a></td>
+                                <th>Nama</th>
+                                <th>Gender</th>
+                                <th>Cabor</th>
+                                <th>Asal</th>
+                                <th>IOD Terakhir</th>
+                                <th>Aksi</th>
                             </tr>
-                            <?php endforeach; ?>
+                        </thead>
+                        <tbody>
+                            <?php if(empty($filteredAthletes)): ?>
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 2rem;">Tidak ada data atlet yang sesuai filter.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($filteredAthletes as $athlete): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($athlete['name']) ?></td>
+                                    <td><?= htmlspecialchars($athlete['gender']) ?></td>
+                                    <td><?= htmlspecialchars($athlete['sport']) ?></td>
+                                    <td><?= htmlspecialchars($athlete['origin'] ?? '-') ?></td>
+                                    <td>
+                                        <?php if($athlete['lastPerformance'] > 0): ?>
+                                            <strong><?= number_format((float)$athlete['lastPerformance'], 2) ?></strong>
+                                        <?php else: ?>
+                                            <span style="color: #94a3b8;">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><a href="?athlete_id=<?= $athlete['id'] ?>" class="detail-button">Lihat Detail</a></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
@@ -328,7 +406,12 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="form-group"><label>Pengamat</label><select name="observer" class="form-select"><?php foreach ($observers as $o) echo "<option>$o</option>"; ?></select></div>
+                        <div class="form-group">
+                            <label>Pengamat</label>
+                            <select name="observer" class="form-select">
+                                <?php foreach ($definedObservers as $o) echo "<option>$o</option>"; ?>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-grid">
                         <div class="form-group"><label>Tanggal</label><input type="date" name="date" value="<?= $_POST['date'] ?? date('Y-m-d') ?>" class="form-input"></div>
@@ -405,35 +488,19 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
                                 <?= $calculatedResult['iodClass'] ?>
                             </span>
                         </div>
-
                         <div class="form-grid">
-                            <div class="result-item">
-                                <p class="label">Absolute Density</p>
-                                <p class="value"><?= number_format($calculatedResult['absoluteDensity'], 2) ?>%</p>
-                            </div>
-                            <div class="result-item">
-                                <p class="label">Overall Intensity</p>
-                                <p class="value"><?= number_format($calculatedResult['overallIntensity'], 2) ?>%</p>
-                            </div>
-                            <div class="result-item">
-                                <p class="label">Volume Absolute</p>
-                                <p class="value"><?= number_format($calculatedResult['volAbsolute'], 2) ?> mnt</p>
-                            </div>
-                            <div class="result-item">
-                                <p class="label">Total Recovery</p>
-                                <p class="value"><?= number_format($calculatedResult['recovery'], 2) ?> mnt</p>
-                            </div>
-                            <div class="result-item">
-                                <p class="label">HR Max</p>
-                                <p class="value text-red-600"><?= $calculatedResult['hrMax'] ?></p>
-                            </div>
+                            <div class="result-item"><p class="label">Absolute Density</p><p class="value"><?= number_format($calculatedResult['absoluteDensity'], 2) ?>%</p></div>
+                            <div class="result-item"><p class="label">Overall Intensity</p><p class="value"><?= number_format($calculatedResult['overallIntensity'], 2) ?>%</p></div>
+                            <div class="result-item"><p class="label">Volume Absolute</p><p class="value"><?= number_format($calculatedResult['volAbsolute'], 2) ?> mnt</p></div>
+                            <div class="result-item"><p class="label">Total Recovery</p><p class="value"><?= number_format($calculatedResult['recovery'], 2) ?> mnt</p></div>
+                            <div class="result-item"><p class="label">HR Max</p><p class="value text-red-600"><?= $calculatedResult['hrMax'] ?></p></div>
                         </div>
                     </div>
                 <?php endif; ?>
             </div>
 
         <?php elseif ($currentPage === 'history' && $selectedAthlete): ?>
-            <a href="?page=dashboard" class="back-button">← Kembali</a>
+            <a href="?page=list_athlete" class="back-button">← Kembali ke Daftar</a>
             <div class="panel">
                 <h1><?= htmlspecialchars($selectedAthlete['name']) ?></h1>
                 
@@ -468,7 +535,6 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
                                 <span style="font-size: 1.5rem; font-weight: bold; color: #1e293b;">
                                     <?= isset($t['iod']) ? number_format($t['iod'], 2) : ($t['performance'] ?? '-') ?>
                                 </span>
-                                
                                 <?php if(isset($t['iodClass'])): ?>
                                     <br><span class="iod-badge <?= getBadgeClass($t['iodClass']) ?>" style="font-size: 0.8rem; padding: 2px 8px;">
                                         <?= $t['iodClass'] ?>
@@ -476,25 +542,11 @@ $pieChartData = generate_pie_chart_data($filteredIodCategories);
                                 <?php endif; ?>
                             </div>
                         </div>
-                        
-                        <?php if(isset($t['iod'])): ?>
-                        <div class="history-grid" style="margin-bottom: 1rem;">
-                            
-                            <div class="history-item">
-                                <p class="label">Kategori (Manual)</p>
-                                <p class="value" style="color: #2563eb; font-weight: bold;"><?= htmlspecialchars($t['manual_category'] ?? '-') ?></p>
-                            </div>
-                            <div class="history-item"><p class="label">Abs. Density</p><p class="value"><?= number_format($t['absoluteDensity'], 2) ?>%</p></div>
-                            <div class="history-item"><p class="label">Ov. Intensity</p><p class="value"><?= number_format($t['overallIntensity'], 2) ?>%</p></div>
-                            <div class="history-item"><p class="label">Vol Absolute</p><p class="value"><?= number_format($t['volAbsolute'], 2) ?></p></div>
-                        </div>
-                        <?php endif; ?>
-
                         <?php if (isset($t['details'])): ?>
                             <table class="input-table" style="font-size: 0.85rem;">
                                 <tr style="background: #eee;">
                                     <th>Fase</th>
-                                    <th>Durasi Exercise</th>
+                                    <th>Durasi</th>
                                     <th>Set</th>
                                     <th>HRP</th>
                                     <th>Partial Int.</th>
