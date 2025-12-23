@@ -16,7 +16,6 @@ if (!empty($athletes)) {
 
 // 2. Daftar Observer (Bawaan + yang sudah tersimpan di history jika ada yang custom)
 $definedObservers = ['Coach Budi', 'Coach Sarah', 'Coach Dimas'];
-// (Opsional: jika ingin mengambil observer unik dari riwayat latihan yang sudah ada)
 $historyObservers = [];
 foreach ($athletes as $a) {
     if (!empty($a['trainings'])) {
@@ -51,7 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['submit_athlete'])) {
         $message = add_new_athlete($_POST);
         $athletes = $_SESSION['athletes']; // Refresh data
-        // Redirect ke daftar atlet setelah input
         $currentPage = 'list_athlete';
     }
 
@@ -121,6 +119,9 @@ if (!empty($selectedSportFilterChart)) {
 $filteredIodCategories = count_iod_categories($athletesForPie);
 $pieChartData = generate_pie_chart_data($filteredIodCategories);
 
+// --- [BARU] Data untuk Time Series Average IOD ---
+$monthlyAvgChartData = generate_monthly_average_chart_data($athletes);
+
 // --- FUNGSI CHART HELPER ---
 function generate_google_chart_data($data) {
     $data_array = [['Atlet', 'IOD Terakhir']];
@@ -149,6 +150,43 @@ function generate_pie_chart_data($data) {
     }
     return json_encode($data_array);
 }
+
+// --- [BARU] Fungsi Helper untuk Chart Bulanan ---
+function generate_monthly_average_chart_data($athletes) {
+    $monthlySums = [];
+    $monthlyCounts = [];
+
+    foreach ($athletes as $athlete) {
+        if (!empty($athlete['trainings'])) {
+            foreach ($athlete['trainings'] as $t) {
+                // Ambil nilai IOD, prioritas key 'iod', fallback ke 'performance'
+                $val = isset($t['iod']) ? (float)$t['iod'] : ((isset($t['performance']) && is_numeric($t['performance'])) ? (float)$t['performance'] : 0);
+                
+                if (isset($t['date']) && $val > 0) {
+                    $monthKey = date('Y-m', strtotime($t['date']));
+                    if (!isset($monthlySums[$monthKey])) {
+                        $monthlySums[$monthKey] = 0;
+                        $monthlyCounts[$monthKey] = 0;
+                    }
+                    $monthlySums[$monthKey] += $val;
+                    $monthlyCounts[$monthKey]++;
+                }
+            }
+        }
+    }
+
+    ksort($monthlySums); // Urutkan berdasarkan bulan (terlama ke terbaru)
+
+    $data_array = [['Bulan', 'Rata-rata IOD']];
+    foreach ($monthlySums as $month => $sum) {
+        $avg = $sum / $monthlyCounts[$month];
+        // Format label bulan (misal: Jan 2024)
+        $label = date('M Y', strtotime($month . '-01'));
+        $data_array[] = [$label, $avg];
+    }
+    
+    return json_encode($data_array);
+}
 ?>
 
 <!DOCTYPE html>
@@ -167,6 +205,8 @@ function generate_pie_chart_data($data) {
             if (document.getElementById('bar_chart_div')) drawBarChart();
             if (document.getElementById('line_chart_div')) drawLineChart();
             if (document.getElementById('pie_chart_div')) drawPieChart();
+            // [BARU] Gambar chart rata-rata
+            if (document.getElementById('avg_iod_chart_div')) drawAvgIodChart();
         }
         
         function drawBarChart() {
@@ -209,6 +249,33 @@ function generate_pie_chart_data($data) {
                 legend: { position: 'right', alignment: 'center' }
             };
             var chart = new google.visualization.PieChart(document.getElementById('pie_chart_div'));
+            chart.draw(data, options);
+        }
+
+        // [BARU] Fungsi JS untuk menggambar chart rata-rata bulanan
+        function drawAvgIodChart() {
+            var jsonData = <?php echo $monthlyAvgChartData; ?>;
+            
+            // Cek jika data kosong (hanya header)
+            if (jsonData.length <= 1) {
+                document.getElementById('avg_iod_chart_div').innerHTML = "<div style='text-align: center; padding: 4rem 1rem; color: #64748b;'><p>Belum ada cukup data latihan untuk statistik bulanan.</p></div>";
+                return;
+            }
+
+            var data = new google.visualization.arrayToDataTable(jsonData);
+            
+            var options = { 
+                title: 'Tren Rata-rata IOD Semua Atlet (Per Bulan)', 
+                curveType: 'function', 
+                legend: { position: 'bottom' }, 
+                colors: ['#10b981'], // Warna Hijau Emerald
+                vAxis: { title: 'Rata-rata IOD', minValue: 0 },
+                pointSize: 5,
+                areaOpacity: 0.2
+            };
+            
+            // Menggunakan AreaChart agar terlihat lebih bagus untuk tren agregat
+            var chart = new google.visualization.AreaChart(document.getElementById('avg_iod_chart_div'));
             chart.draw(data, options);
         }
     </script>
@@ -263,6 +330,11 @@ function generate_pie_chart_data($data) {
                     <?php endif; ?>
                 </div>
             </div>
+
+            <div class="panel" style="margin-top: 1.5rem;">
+                <h3>Perkembangan Rata-rata IOD Global</h3>
+                <div id="avg_iod_chart_div" style="width: 100%; height: 350px;"></div>
+            </div>
             
             <?php elseif ($currentPage === 'list_athlete'): ?>
             
@@ -273,20 +345,18 @@ function generate_pie_chart_data($data) {
             
             $filteredAthletes = $athletes;
 
-            // 1. Filter by Cabor
             if (!empty($filterSport)) {
                 $filteredAthletes = array_filter($filteredAthletes, function($a) use ($filterSport) {
                     return isset($a['sport']) && strcasecmp($a['sport'], $filterSport) === 0;
                 });
             }
 
-            // 2. Filter by Pengamat (Cek riwayat latihan atlet)
             if (!empty($filterObserver)) {
                 $filteredAthletes = array_filter($filteredAthletes, function($a) use ($filterObserver) {
-                    if (empty($a['trainings'])) return false; // Skip jika belum ada latihan
+                    if (empty($a['trainings'])) return false; 
                     foreach ($a['trainings'] as $t) {
                         if (isset($t['observer']) && $t['observer'] === $filterObserver) {
-                            return true; // Found match
+                            return true;
                         }
                     }
                     return false;
