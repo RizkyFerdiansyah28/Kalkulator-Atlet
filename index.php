@@ -67,11 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
             }
 
+            // --- MODIFIKASI: Tangkap Input Kategori Manual ---
             $formData = [
                 'date' => $_POST['date'],
                 'observer' => $_POST['observer'],
-                'volRelatif' => $volRelatif
+                'volRelatif' => $volRelatif,
+                'manual_category' => $_POST['manual_category'] // Tambahkan ini
             ];
+            // ------------------------------------------------
 
             $message = submit_training_revision($athleteId, $formData, $calculatedResult, $trainingDetails);
             if ($message === 'Data latihan berhasil disimpan!') {
@@ -299,11 +302,16 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
                             <input type="number" step="0.01" name="volRelatif" value="<?= $_POST['volRelatif'] ?? '' ?>" class="form-input" required placeholder="Contoh: 120.5">
                         </div>
                     </div>
+                    
                     <div class="form-grid">
-                        <div class="form-group"><label>Klasifikasi Latihan</label></div>
                         <div class="form-group">
-                            <label>Pilih Kategori</label>
-                            
+                            <label>Klasifikasi Latihan</label>
+                            <select name="manual_category" class="form-select" required>
+                                <option value="">-- Pilih --</option>
+                                <option value="Ringan" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Ringan') ? 'selected' : '' ?>>Ringan</option>
+                                <option value="Sedang" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Sedang') ? 'selected' : '' ?>>Sedang</option>
+                                <option value="Berat" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Berat') ? 'selected' : '' ?>>Berat</option>
+                            </select>
                         </div>
                     </div>
                     <hr style="margin: 2rem 0;">
@@ -436,6 +444,11 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
                         
                         <?php if(isset($t['iod'])): ?>
                         <div class="history-grid" style="margin-bottom: 1rem;">
+                            
+                            <div class="history-item">
+                                <p class="label">Kategori (Manual)</p>
+                                <p class="value" style="color: #2563eb; font-weight: bold;"><?= htmlspecialchars($t['manual_category'] ?? '-') ?></p>
+                            </div>
                             <div class="history-item"><p class="label">Abs. Density</p><p class="value"><?= number_format($t['absoluteDensity'], 2) ?>%</p></div>
                             <div class="history-item"><p class="label">Ov. Intensity</p><p class="value"><?= number_format($t['overallIntensity'], 2) ?>%</p></div>
                             <div class="history-item"><p class="label">Vol Absolute</p><p class="value"><?= number_format($t['volAbsolute'], 2) ?></p></div>

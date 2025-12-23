@@ -129,6 +129,10 @@ function submit_training_revision($athleteId, $formData, $calculatedMetrics, $tr
         'observer' => $formData['observer'],
         'volRelatif' => (float)$formData['volRelatif'],
         
+        // --- MODIFIKASI: Simpan Kategori Manual ---
+        'manual_category' => $formData['manual_category'] ?? '-',
+        // ------------------------------------------
+        
         'recovery' => $calculatedMetrics['recovery'],
         'volAbsolute' => $calculatedMetrics['volAbsolute'],
         'hrMax' => $calculatedMetrics['hrMax'],
