@@ -17,7 +17,6 @@ $observers = ['Coach Budi', 'Coach Sarah', 'Coach Dimas'];
 $message = null;
 $calculatedResult = null;
 
-// Helper untuk Class CSS berdasarkan string Status
 function getBadgeClass($status) {
     $slug = strtolower(str_replace(' ', '-', $status));
     return "badge-$slug";
@@ -25,15 +24,20 @@ function getBadgeClass($status) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Handle Add Athlete
+    // ... (Logika POST Handling, tetap sama)
     if (isset($_POST['submit_athlete'])) {
         $message = add_new_athlete($_POST);
         $athletes = $_SESSION['athletes'];
+        $stats = get_statistics($athletes); 
+        $performanceData = array_map(function($a) {
+            return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
+        }, $athletes);
+        $iodCategoriesData = count_iod_categories($athletes);
         $currentPage = 'dashboard';
     }
 
-    // Handle Calculate & Submit
     elseif (isset($_POST['calculate']) || isset($_POST['submit_training'])) {
+        // ... (Logika kalkulasi dan submit tetap sama)
         $athleteId = $_POST['athleteId'];
         $volRelatif = $_POST['volRelatif'];
         $rests = $_POST['rest'] ?? [];
@@ -74,26 +78,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $calculatedResult = null;
                 $_POST = [];
                 $athletes = $_SESSION['athletes'];
+                // Update data setelah submit latihan
+                $stats = get_statistics($athletes); 
+                $performanceData = array_map(function($a) {
+                    return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
+                }, $athletes);
+                $iodCategoriesData = count_iod_categories($athletes);
             }
         }
         $currentPage = 'form';
     }
 }
 
-// Chart Functions (Sama seperti sebelumnya)
+// --- FUNGSI CHART REVISI KRITIS: Menggunakan JSON_ENCODE ---
+
+// 1. Fungsi Data Bar Chart (Dashboard)
 function generate_google_chart_data($data) {
-    $rows = [];
-    foreach ($data as $item) { $rows[] = "['{$item['name']}', {$item['performa']}]"; }
-    return '[' . implode(', ', $rows) . ']';
-}
-function generate_history_chart_data($trainings) {
-    $rows = [];
-    foreach ($trainings as $t) {
-        $val = isset($t['iod']) ? $t['iod'] : ($t['performance'] ?? 0);
-        $rows[] = "['{$t['date']}', {$val}]";
+    // Array dengan header
+    $data_array = [['Atlet', 'IOD Terakhir']];
+    foreach ($data as $item) { 
+        // Pastikan nama atlet dan skor IOD (float)
+        $data_array[] = [explode(' ', $item['name'])[0], (float)$item['performa']]; 
     }
-    return '[' . implode(', ', $rows) . ']';
+    // Konversi array PHP ke JSON untuk JavaScript
+    return json_encode($data_array);
 }
+
+// 2. Fungsi Data Line Chart (Riwayat)
+function generate_history_chart_data($trainings) {
+    // Array dengan header
+    $data_array = [['Tanggal', 'Skor IOD']];
+    foreach ($trainings as $t) {
+        // Ambil nilai IOD (iod (float) atau performance (string/float))
+        $val = isset($t['iod']) ? (float)$t['iod'] : ((isset($t['performance']) && is_numeric($t['performance'])) ? (float)$t['performance'] : 0);
+        
+        // Simpan tanggal (string) dan IOD (float)
+        $data_array[] = [$t['date'], $val];
+    }
+    // Konversi array PHP ke JSON untuk JavaScript
+    return json_encode($data_array);
+}
+
+// 3. Fungsi Data Pie Chart (Dashboard)
+function generate_pie_chart_data($data) {
+    $data_array = [['Kategori IOD', 'Jumlah Latihan']];
+    $order = ['Super Maximal', 'Maximum', 'Hard', 'Medium', 'Low', 'Very Low'];
+    foreach ($order as $category) {
+        if (isset($data[$category]) && $data[$category] > 0) {
+            $data_array[] = ["$category ({$data[$category]})", (int)$data[$category]];
+        }
+    }
+    return json_encode($data_array);
+}
+
+$pieChartData = generate_pie_chart_data($iodCategoriesData);
 ?>
 
 <!DOCTYPE html>
@@ -107,27 +145,66 @@ function generate_history_chart_data($trainings) {
     <script type="text/javascript">
         google.charts.load('current', {'packages':['corechart']});
         google.charts.setOnLoadCallback(drawCharts);
+        
         function drawCharts() {
+            // Cek elemen DIV chart sebelum memanggil fungsi
             if (document.getElementById('bar_chart_div')) drawBarChart();
             if (document.getElementById('line_chart_div')) drawLineChart();
+            if (document.getElementById('pie_chart_div')) drawPieChart();
         }
+        
+        // FUNGSI BAR CHART DIPERBAIKI (Menggunakan JSON data)
         function drawBarChart() {
-            var data = new google.visualization.arrayToDataTable([['Atlet', 'IOD Terakhir'], <?php echo generate_google_chart_data($performanceData); ?>]);
-            var options = { title: 'Indeks Kesulitan (IOD) Atlet', legend: { position: 'none' }, colors: ['#7c3aed'] };
+            var jsonData = <?php echo generate_google_chart_data($performanceData); ?>;
+            var data = new google.visualization.arrayToDataTable(jsonData); // Memuat dari JSON
+            
+            var options = { 
+                title: 'Indeks Kesulitan (IOD) Atlet Terakhir', 
+                legend: { position: 'none' }, 
+                colors: ['#7c3aed'],
+                vAxis: { title: 'Skor IOD', minValue: 0 }
+            };
             var chart = new google.visualization.ColumnChart(document.getElementById('bar_chart_div'));
             chart.draw(data, options);
         }
+        
+        // FUNGSI LINE CHART DIPERBAIKI (Menggunakan JSON data)
         function drawLineChart() {
-            var data = new google.visualization.arrayToDataTable([['Tanggal', 'Skor IOD'], <?php echo generate_history_chart_data($selectedAthlete['trainings'] ?? []); ?>]);
-            var options = { title: 'Perkembangan IOD', curveType: 'function', legend: { position: 'bottom' }, colors: ['#7c3aed'] };
+            var jsonData = <?php echo generate_history_chart_data($selectedAthlete['trainings'] ?? []); ?>;
+            var data = new google.visualization.arrayToDataTable(jsonData); // Memuat dari JSON
+            
+            var options = { 
+                title: 'Perkembangan IOD (Index of Difficulty)', 
+                curveType: 'function', 
+                legend: { position: 'bottom' }, 
+                colors: ['#2563eb'], 
+                vAxis: { title: 'Skor IOD', minValue: 0 }
+            };
             var chart = new google.visualization.LineChart(document.getElementById('line_chart_div'));
+            chart.draw(data, options);
+        }
+
+        // FUNGSI PIE CHART DIPERBAIKI (Menggunakan JSON data)
+        function drawPieChart() {
+            var jsonData = <?php echo $pieChartData; ?>;
+            var data = new google.visualization.arrayToDataTable(jsonData);
+            
+            var pieColors = ['#db2777', '#991b1b', '#c2410c', '#92400e', '#065f46', '#374151']; 
+
+            var options = { 
+                title: 'Distribusi Total Kategori IOD', 
+                sliceVisibilityThreshold: 0, 
+                colors: pieColors,
+                legend: { position: 'right', alignment: 'center' }
+            };
+            var chart = new google.visualization.PieChart(document.getElementById('pie_chart_div'));
             chart.draw(data, options);
         }
     </script>
 </head>
 <body>
 
-    <header><div class="container"><h1>Human Interval Output Data (HIOD)</h1></div></header>
+    <header><div class="container"><h1>Sistem Pelatihan Atlet</h1></div></header>
 
     <nav>
         <div class="container">
@@ -143,10 +220,21 @@ function generate_history_chart_data($trainings) {
         <?php if ($message): ?><div class="alert-box"><?= htmlspecialchars($message) ?></div><?php endif; ?>
 
         <?php if ($currentPage === 'dashboard'): ?>
-            <div class="panel">
-                <h3>Grafik IOD (Index of Difficulty)</h3>
-                <div id="bar_chart_div" style="width: 100%; height: 300px;"></div>
+            <div class="chart-grid">
+                <div class="panel">
+                    <h3>Grafik IOD (Index of Difficulty) Atlet Terakhir</h3>
+                    <div id="bar_chart_div" style="width: 100%; height: 300px;"></div>
+                </div>
+                <div class="panel">
+                    <h3>Total Kategori IOD Seluruh Latihan</h3>
+                    <?php if (array_sum($iodCategoriesData) > 0): ?>
+                        <div id="pie_chart_div" style="width: 100%; height: 300px;"></div>
+                    <?php else: ?>
+                        <p style="text-align: center; padding: 5rem;">Belum ada data latihan yang tersimpan.</p>
+                    <?php endif; ?>
+                </div>
             </div>
+            
             <div class="panel" style="margin-top: 1.5rem;">
                 <h3>Daftar Atlet</h3>
                 <div class="table-container">
@@ -157,7 +245,7 @@ function generate_history_chart_data($trainings) {
                             <tr>
                                 <td><?= htmlspecialchars($athlete['name']) ?></td>
                                 <td><?= htmlspecialchars($athlete['sport']) ?></td>
-                                <td><strong><?= number_format($athlete['lastPerformance'], 2) ?></strong></td>
+                                <td><strong><?= number_format((float)$athlete['lastPerformance'], 2) ?></strong></td>
                                 <td><a href="?athlete_id=<?= $athlete['id'] ?>" class="detail-button">Lihat Detail</a></td>
                             </tr>
                             <?php endforeach; ?>
@@ -187,6 +275,7 @@ function generate_history_chart_data($trainings) {
                 </form>
             </div>
 
+
         <?php elseif ($currentPage === 'form'): ?>
             <div class="panel">
                 <h2>Input Latihan & Kalkulasi IOD</h2>
@@ -210,7 +299,13 @@ function generate_history_chart_data($trainings) {
                             <input type="number" step="0.01" name="volRelatif" value="<?= $_POST['volRelatif'] ?? '' ?>" class="form-input" required placeholder="Contoh: 120.5">
                         </div>
                     </div>
-
+                    <div class="form-grid">
+                        <div class="form-group"><label>Klasifikasi Latihan</label></div>
+                        <div class="form-group">
+                            <label>Pilih Kategori</label>
+                            
+                        </div>
+                    </div>
                     <hr style="margin: 2rem 0;">
 
                     <div class="table-container">
@@ -231,7 +326,7 @@ function generate_history_chart_data($trainings) {
                                     <tr>
                                         <td style="font-weight: bold; background:#f9fafb;"><?= $phase ?></td>
                                         <td><input type="number" step="0.01" name="duration[]" value="<?= $_POST['duration'][$index] ?? '' ?>" class="table-input" placeholder="mnt"></td>
-                                        <td><input type="number" name="set[]" value="<?= $_POST['set'][$index] ?? '' ?>" class="table-input" placeholder=""></td>
+                                        <td><input type="number" name="set[]" value="<?= $_POST['set'][$index] ?? '' ?>" class="table-input" placeholder="1"></td>
                                         <td><input type="number" name="hrp[]" value="<?= $_POST['hrp'][$index] ?? '' ?>" class="table-input"></td>
                                     </tr>
                                     <?php if ($index < count($phases)): ?>
@@ -298,13 +393,29 @@ function generate_history_chart_data($trainings) {
             <a href="?page=dashboard" class="back-button">← Kembali</a>
             <div class="panel">
                 <h1><?= htmlspecialchars($selectedAthlete['name']) ?></h1>
+                
+                <div style="background: #f1f5f9; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                    <div class="history-grid">
+                        <div class="history-item"><p class="label">Gender</p><p class="value"><?= htmlspecialchars($selectedAthlete['gender'] ?? '-') ?></p></div>
+                        <div class="history-item"><p class="label">Usia</p><p class="value"><?= htmlspecialchars($selectedAthlete['age'] ?? '-') ?> th</p></div>
+                        <div class="history-item"><p class="label">Asal</p><p class="value"><?= htmlspecialchars($selectedAthlete['origin'] ?? '-') ?></p></div>
+                        <div class="history-item"><p class="label">Cabor</p><p class="value"><?= htmlspecialchars($selectedAthlete['sport'] ?? '-') ?></p></div>
+                        <div class="history-item"><p class="label">Berat</p><p class="value"><?= htmlspecialchars($selectedAthlete['weight'] ?? '-') ?> kg</p></div>
+                        <div class="history-item"><p class="label">Tinggi</p><p class="value"><?= htmlspecialchars($selectedAthlete['height'] ?? '-') ?> cm</p></div>
+                    </div>
+                </div>
+                
                 <hr style="margin: 1rem 0;">
                 
-                <div id="line_chart_div" style="width: 100%; height: 300px; margin-bottom: 2rem;"></div>
+                <?php if (!empty($selectedAthlete['trainings'])): ?>
+                    <div id="line_chart_div" style="width: 100%; height: 300px; margin-bottom: 2rem;"></div>
+                <?php else: ?>
+                    <p style="text-align: center; padding: 3rem; background: #fff7ed; border-radius: 0.5rem;">Belum ada riwayat latihan untuk atlet ini.</p>
+                <?php endif; ?>
 
                 <h3>Riwayat Latihan</h3>
                 <?php foreach (array_reverse($selectedAthlete['trainings']) as $t): ?>
-                    <div class="training-detail">
+                    <div class="training-detail" style="margin-bottom: 1rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
                             <div>
                                 <strong><?= $t['date'] ?></strong> | Observer: <?= $t['observer'] ?>
@@ -316,7 +427,7 @@ function generate_history_chart_data($trainings) {
                                 </span>
                                 
                                 <?php if(isset($t['iodClass'])): ?>
-                                    <br><span class="iod-badge <?= getBadgeClass($t['iodClass']) ?>" style="font-size: 1.2rem; padding: 2px 8px;">
+                                    <br><span class="iod-badge <?= getBadgeClass($t['iodClass']) ?>" style="font-size: 0.8rem; padding: 2px 8px;">
                                         <?= $t['iodClass'] ?>
                                     </span>
                                 <?php endif; ?>

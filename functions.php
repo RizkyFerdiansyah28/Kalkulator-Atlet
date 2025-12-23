@@ -4,6 +4,7 @@ session_start();
 // --- Struktur Data Awal ---
 function initialize_athletes() {
     if (!isset($_SESSION['athletes'])) {
+        // Data awal yang lebih lengkap
         $_SESSION['athletes'] = [
             1 => ['id' => 1, 'name' => 'Ahmad Rifai', 'gender' => 'Laki-laki', 'origin' => 'Jakarta', 'sport' => 'Atletik', 'weight' => 65, 'height' => 175, 'age' => 24, 'lastPerformance' => 0, 'trainings' => []],
             2 => ['id' => 2, 'name' => 'Siti Nurhaliza', 'gender' => 'Perempuan', 'origin' => 'Bandung', 'sport' => 'Renang', 'weight' => 55, 'height' => 165, 'age' => 22, 'lastPerformance' => 0, 'trainings' => []]
@@ -85,7 +86,7 @@ function calculate_training_metrics($athleteId, $volRelatif, $rests, $trainingRo
     // 6. Hitung IOD
     $iod = ($volAbsolute * $absoluteDensity * $overallIntensity) / 10000;
 
-    // 7. Tentukan Klasifikasi IOD (LOGIKA BARU)
+    // 7. Tentukan Klasifikasi IOD 
     $iodClass = '';
     if ($iod >= 100) {
         $iodClass = 'Super Maximal';
@@ -119,6 +120,9 @@ function submit_training_revision($athleteId, $formData, $calculatedMetrics, $tr
         return 'Atlet tidak ditemukan';
     }
 
+    // Ambil nilai IOD yang sudah dibulatkan sebagai float
+    $iodValue = (float)number_format($calculatedMetrics['iod'], 2, '.', '');
+
     $newTraining = [
         'id' => time(),
         'date' => $formData['date'],
@@ -130,15 +134,16 @@ function submit_training_revision($athleteId, $formData, $calculatedMetrics, $tr
         'hrMax' => $calculatedMetrics['hrMax'],
         'absoluteDensity' => $calculatedMetrics['absoluteDensity'],
         'overallIntensity' => $calculatedMetrics['overallIntensity'],
-        'iod' => $calculatedMetrics['iod'],
-        'iodClass' => $calculatedMetrics['iodClass'], // SIMPAN KE HISTORY
+        'iod' => $calculatedMetrics['iod'], // Simpan nilai float IOD yang presisi
+        'iodClass' => $calculatedMetrics['iodClass'], 
         
         'details' => $trainingDetails,
-        'performance' => number_format($calculatedMetrics['iod'], 2),
+        'performance' => number_format($calculatedMetrics['iod'], 2), // Simpan format string untuk tampilan tabel
         'status' => 'Calculated'
     ];
 
-    $_SESSION['athletes'][$athleteId]['lastPerformance'] = $newTraining['performance'];
+    // KRITIS: Simpan performa terakhir sebagai float, BUKAN string format
+    $_SESSION['athletes'][$athleteId]['lastPerformance'] = $iodValue; 
     $_SESSION['athletes'][$athleteId]['trainings'][] = $newTraining;
 
     return 'Data latihan berhasil disimpan!';
@@ -156,9 +161,25 @@ function get_statistics($athletes) {
     return compact('totalAthletes', 'avgIOD', 'totalTrainings');
 }
 
+// Data IOD Category untuk Pie Chart (Jika Anda menggunakannya)
+function count_iod_categories($athletes) {
+    $categories = ['Super Maximal' => 0, 'Maximum' => 0, 'Hard' => 0, 'Medium' => 0, 'Low' => 0, 'Very Low' => 0];
+    foreach ($athletes as $athlete) {
+        foreach ($athlete['trainings'] as $training) {
+            if (isset($training['iodClass']) && array_key_exists($training['iodClass'], $categories)) {
+                $categories[$training['iodClass']]++;
+            }
+        }
+    }
+    return array_filter($categories);
+}
+
 $athletes = $_SESSION['athletes'];
 $stats = get_statistics($athletes);
 $performanceData = array_map(function($a) {
-    return ['name' => explode(' ', $a['name'])[0], 'performa' => $a['lastPerformance']];
+    // Pastikan performa sebagai float/numeric untuk Bar Chart
+    return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']]; 
 }, $athletes);
+
+$iodCategoriesData = count_iod_categories($athletes);
 ?>
