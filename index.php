@@ -24,7 +24,6 @@ function getBadgeClass($status) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // ... (Logika POST Handling, tetap sama)
     if (isset($_POST['submit_athlete'])) {
         $message = add_new_athlete($_POST);
         $athletes = $_SESSION['athletes'];
@@ -37,7 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     elseif (isset($_POST['calculate']) || isset($_POST['submit_training'])) {
-        // ... (Logika kalkulasi dan submit tetap sama)
         $athleteId = $_POST['athleteId'];
         $volRelatif = $_POST['volRelatif'];
         $rests = $_POST['rest'] ?? [];
@@ -67,14 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
             }
 
-            // --- MODIFIKASI: Tangkap Input Kategori Manual ---
             $formData = [
                 'date' => $_POST['date'],
                 'observer' => $_POST['observer'],
                 'volRelatif' => $volRelatif,
-                'manual_category' => $_POST['manual_category'] // Tambahkan ini
+                'manual_category' => $_POST['manual_category']
             ];
-            // ------------------------------------------------
 
             $message = submit_training_revision($athleteId, $formData, $calculatedResult, $trainingDetails);
             if ($message === 'Data latihan berhasil disimpan!') {
@@ -93,36 +89,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// --- FUNGSI CHART REVISI KRITIS: Menggunakan JSON_ENCODE ---
+// --- FUNGSI CHART ---
 
-// 1. Fungsi Data Bar Chart (Dashboard)
 function generate_google_chart_data($data) {
-    // Array dengan header
     $data_array = [['Atlet', 'IOD Terakhir']];
     foreach ($data as $item) { 
-        // Pastikan nama atlet dan skor IOD (float)
         $data_array[] = [explode(' ', $item['name'])[0], (float)$item['performa']]; 
     }
-    // Konversi array PHP ke JSON untuk JavaScript
     return json_encode($data_array);
 }
 
-// 2. Fungsi Data Line Chart (Riwayat)
 function generate_history_chart_data($trainings) {
-    // Array dengan header
     $data_array = [['Tanggal', 'Skor IOD']];
     foreach ($trainings as $t) {
-        // Ambil nilai IOD (iod (float) atau performance (string/float))
         $val = isset($t['iod']) ? (float)$t['iod'] : ((isset($t['performance']) && is_numeric($t['performance'])) ? (float)$t['performance'] : 0);
-        
-        // Simpan tanggal (string) dan IOD (float)
         $data_array[] = [$t['date'], $val];
     }
-    // Konversi array PHP ke JSON untuk JavaScript
     return json_encode($data_array);
 }
 
-// 3. Fungsi Data Pie Chart (Dashboard)
 function generate_pie_chart_data($data) {
     $data_array = [['Kategori IOD', 'Jumlah Latihan']];
     $order = ['Super Maximal', 'Maximum', 'Hard', 'Medium', 'Low', 'Very Low'];
@@ -134,7 +119,35 @@ function generate_pie_chart_data($data) {
     return json_encode($data_array);
 }
 
-$pieChartData = generate_pie_chart_data($iodCategoriesData);
+// --- LOGIKA FILTER CABOR PIE CHART (BARU) ---
+
+// 1. Ambil daftar Cabor unik dari data atlet
+$uniqueSports = [];
+if (!empty($athletes)) {
+    $sports = array_column($athletes, 'sport');
+    // Bersihkan data kosong dan duplikat
+    $uniqueSports = array_unique(array_filter($sports));
+    sort($uniqueSports); // Urutkan abjad
+}
+
+// 2. Cek apakah ada filter yang dipilih user
+$selectedSportFilter = $_GET['sport_filter'] ?? '';
+
+// 3. Filter data atlet khusus untuk Pie Chart
+$athletesForPie = $athletes;
+if (!empty($selectedSportFilter)) {
+    $athletesForPie = array_filter($athletes, function($a) use ($selectedSportFilter) {
+        // Pastikan key 'sport' ada dan cocok (case insensitive untuk keamanan)
+        return isset($a['sport']) && strcasecmp($a['sport'], $selectedSportFilter) === 0;
+    });
+}
+
+// 4. Hitung ulang kategori IOD berdasarkan data yang difilter
+$filteredIodCategories = count_iod_categories($athletesForPie);
+
+// 5. Generate JSON untuk chart
+$pieChartData = generate_pie_chart_data($filteredIodCategories);
+
 ?>
 
 <!DOCTYPE html>
@@ -150,16 +163,14 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
         google.charts.setOnLoadCallback(drawCharts);
         
         function drawCharts() {
-            // Cek elemen DIV chart sebelum memanggil fungsi
             if (document.getElementById('bar_chart_div')) drawBarChart();
             if (document.getElementById('line_chart_div')) drawLineChart();
             if (document.getElementById('pie_chart_div')) drawPieChart();
         }
         
-        // FUNGSI BAR CHART DIPERBAIKI (Menggunakan JSON data)
         function drawBarChart() {
             var jsonData = <?php echo generate_google_chart_data($performanceData); ?>;
-            var data = new google.visualization.arrayToDataTable(jsonData); // Memuat dari JSON
+            var data = new google.visualization.arrayToDataTable(jsonData);
             
             var options = { 
                 title: 'Indeks Kesulitan (IOD) Atlet Terakhir', 
@@ -171,10 +182,9 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
             chart.draw(data, options);
         }
         
-        // FUNGSI LINE CHART DIPERBAIKI (Menggunakan JSON data)
         function drawLineChart() {
             var jsonData = <?php echo generate_history_chart_data($selectedAthlete['trainings'] ?? []); ?>;
-            var data = new google.visualization.arrayToDataTable(jsonData); // Memuat dari JSON
+            var data = new google.visualization.arrayToDataTable(jsonData);
             
             var options = { 
                 title: 'Perkembangan IOD (Index of Difficulty)', 
@@ -187,7 +197,6 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
             chart.draw(data, options);
         }
 
-        // FUNGSI PIE CHART DIPERBAIKI (Menggunakan JSON data)
         function drawPieChart() {
             var jsonData = <?php echo $pieChartData; ?>;
             var data = new google.visualization.arrayToDataTable(jsonData);
@@ -195,7 +204,7 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
             var pieColors = ['#db2777', '#991b1b', '#c2410c', '#92400e', '#065f46', '#374151']; 
 
             var options = { 
-                title: 'Distribusi Total Kategori IOD', 
+                title: 'Distribusi Kategori IOD <?= $selectedSportFilter ? "($selectedSportFilter)" : "" ?>', 
                 sliceVisibilityThreshold: 0, 
                 colors: pieColors,
                 legend: { position: 'right', alignment: 'center' }
@@ -228,12 +237,38 @@ $pieChartData = generate_pie_chart_data($iodCategoriesData);
                     <h3>Grafik IOD (Index of Difficulty) Atlet Terakhir</h3>
                     <div id="bar_chart_div" style="width: 100%; height: 300px;"></div>
                 </div>
+                
                 <div class="panel">
-                    <h3>Total Kategori IOD Seluruh Latihan</h3>
-                    <?php if (array_sum($iodCategoriesData) > 0): ?>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="margin-bottom: 0;">Total Kategori IOD</h3>
+                        
+                        <form method="GET" action="" style="margin: 0;">
+                            <input type="hidden" name="page" value="dashboard">
+                            <select name="sport_filter" onchange="this.form.submit()" class="form-select" style="padding: 0.25rem 2rem 0.25rem 0.5rem; font-size: 0.875rem; border-color: #cbd5e1; cursor: pointer;">
+                                <option value="">Semua Cabor</option>
+                                <?php foreach ($uniqueSports as $sport): ?>
+                                    <option value="<?= htmlspecialchars($sport) ?>" <?= $selectedSportFilter === $sport ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($sport) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </form>
+                    </div>
+
+                    <?php if (array_sum($filteredIodCategories) > 0): ?>
                         <div id="pie_chart_div" style="width: 100%; height: 300px;"></div>
+                        <?php if($selectedSportFilter): ?>
+                            <p style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: -10px;">
+                                Menampilkan data untuk cabor: <strong><?= htmlspecialchars($selectedSportFilter) ?></strong>
+                            </p>
+                        <?php endif; ?>
                     <?php else: ?>
-                        <p style="text-align: center; padding: 5rem;">Belum ada data latihan yang tersimpan.</p>
+                        <div style="text-align: center; padding: 4rem 1rem; color: #64748b;">
+                            <p>Belum ada data latihan <?= $selectedSportFilter ? "untuk cabor <strong>$selectedSportFilter</strong>" : "" ?>.</p>
+                            <?php if($selectedSportFilter): ?>
+                                <a href="?page=dashboard" style="font-size: 0.875rem; color: #2563eb; text-decoration: none;">Reset Filter</a>
+                            <?php endif; ?>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
