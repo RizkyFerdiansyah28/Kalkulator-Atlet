@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_athlete'])) {
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header><div class="container"><h1>Sistem Pelatihan Atlet</h1></div></header>
+    <header><div class="container"><h1>Human Indicator Overview Device</h1></div></header>
 
     <nav>
         <div class="container">

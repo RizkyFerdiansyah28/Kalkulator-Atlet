@@ -1,5 +1,8 @@
 <?php
-session_start();
+// Cek status session sebelum memulai
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // --- Struktur Data Awal ---
 function initialize_athletes() {
@@ -29,7 +32,7 @@ function add_new_athlete($data) {
     return "Atlet berhasil ditambahkan!";
 }
 
-// --- Fungsi Helper (PINDAHAN DARI INDEX.PHP) ---
+// --- Fungsi Helper ---
 function getBadgeClass($status) {
     $slug = strtolower(str_replace(' ', '-', $status));
     return "badge-$slug";
@@ -39,6 +42,11 @@ function getBadgeClass($status) {
 function calculate_training_metrics($athleteId, $trainingDetails) {
     if (empty($athleteId) || empty($trainingDetails)) {
         return ['error' => 'Data atlet dan Detail Latihan harus diisi'];
+    }
+
+    // Pastikan atlet ada
+    if (!isset($_SESSION['athletes'][$athleteId])) {
+        return ['error' => 'Atlet tidak ditemukan'];
     }
 
     $athlete = $_SESSION['athletes'][$athleteId];
@@ -51,8 +59,8 @@ function calculate_training_metrics($athleteId, $trainingDetails) {
     $partialIntensities = [];
 
     foreach ($trainingDetails as $index => $row) {
-        $durasi = (float)$row['duration']; 
-        $hrp = (float)$row['hrp'];
+        $durasi = (float)($row['duration'] ?? 0); 
+        $hrp = (float)($row['hrp'] ?? 0);
         $rest = (float)($row['rest_after'] ?? 0);
 
         $sigmaVolumeExercise += $durasi;
@@ -122,7 +130,7 @@ function submit_training_revision($athleteId, $formData, $calculatedMetrics, $tr
         'overallIntensity' => $calculatedMetrics['overallIntensity'],
         'iod' => $calculatedMetrics['iod'],
         'iodClass' => $calculatedMetrics['iodClass'],
-        'details' => $trainingDetails,
+        'details' => $trainingDetails, // Detail per fase disimpan di sini
         'performance' => number_format($calculatedMetrics['iod'], 2),
         'status' => 'Calculated'
     ];
@@ -157,11 +165,7 @@ function count_iod_categories($athletes) {
     return array_filter($categories);
 }
 
-// Export data untuk digunakan di index.php
+// Export data
 $athletes = $_SESSION['athletes'];
 $stats = get_statistics($athletes);
-$performanceData = array_map(function($a) {
-    return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']]; 
-}, $athletes);
-$iodCategoriesData = count_iod_categories($athletes);
 ?>

@@ -215,7 +215,7 @@ sort($allObservers);
     </script>
 </head>
 <body>
-    <header><div class="container"><h1>Sistem Pelatihan Atlet</h1></div></header>
+    <header><div class="container"><h1>Human Indicator Overview Device</h1></div></header>
 
     <nav>
         <div class="container">

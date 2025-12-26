@@ -14,10 +14,8 @@ if (!$selectedAthlete) {
     exit;
 }
 
-function getBadgeClass($status) {
-    $slug = strtolower(str_replace(' ', '-', $status));
-    return "badge-$slug";
-}
+// HAPUS function getBadgeClass() dari sini karena sudah ada di functions.php
+// (Baris yang menyebabkan error telah dihapus)
 
 function generate_history_chart_data($trainings) {
     $data_array = [['Tanggal', 'Skor IOD']];
@@ -70,7 +68,7 @@ function generate_history_chart_data($trainings) {
     </script>
 </head>
 <body>
-    <header><div class="container"><h1>Sistem Pelatihan Atlet</h1></div></header>
+    <header><div class="container"><h1>Human Indicator Overview Device</h1></div></header>
 
     <nav>
         <div class="container">
@@ -84,7 +82,15 @@ function generate_history_chart_data($trainings) {
     </nav>
 
     <main class="container">
-        <a href="list_athlete.php" class="back-button">← Kembali ke Daftar</a>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <a href="list_athlete.php" class="back-button" style="margin-bottom: 0;">← Kembali ke Daftar</a>
+            
+            <a href="cetak_pdf.php?athlete_id=<?= $selectedAthlete['id'] ?>" target="_blank" class="btn btn-primary" style="background-color: #ef4444; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; display: inline-flex; align-items: center;">
+                Download PDF Report
+            </a>
+        </div>
+
         <div class="panel">
             <h1><?= htmlspecialchars($selectedAthlete['name']) ?></h1>
             
@@ -113,6 +119,12 @@ function generate_history_chart_data($trainings) {
                     <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.5); padding: 1rem; border-bottom: 1px solid var(--border);">
                         <div>
                             <strong style="color: var(--primary);"><?= $t['date'] ?></strong> | Observer: <span style="color: var(--text-muted);"><?= $t['observer'] ?></span>
+                            
+                            <div style="margin-top: 4px;">
+                                <span style="font-size: 0.85rem; color: #cbd5e1; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">
+                                    Jenis Latihan: <?= $t['manual_category'] ?? '-' ?>
+                                </span>
+                            </div>
                         </div>
                         <div style="text-align: right;">
                             <span style="font-size: 0.8rem; color: var(--text-muted);">IOD SCORE</span><br>
