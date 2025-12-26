@@ -36,11 +36,7 @@ if (isset($_GET['athlete_id'])) {
 
 $message = null;
 $calculatedResult = null;
-
-function getBadgeClass($status) {
-    $slug = strtolower(str_replace(' ', '-', $status));
-    return "badge-$slug";
-}
+$tempTrainingData = [];
 
 // --- HANDLER POST REQUEST ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -53,53 +49,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     elseif (isset($_POST['calculate']) || isset($_POST['submit_training'])) {
         $athleteId = $_POST['athleteId'];
-        $volRelatif = $_POST['volRelatif'];
-        $rests = $_POST['rest'] ?? [];
         
-        $trainingRows = [];
-        $phases = ['Warmup', 'Pemanasan Khusus', 'Beregu Full', 'Visualisasi', 'Cooling Down'];
-        
-        foreach ($phases as $index => $phase) {
-            $trainingRows[$index] = [
-                'duration' => $_POST['duration'][$index] ?? 0, 
-                'hrp' => $_POST['hrp'][$index] ?? 0
-            ];
-        }
+        $trainingDetails = [];
+        if (isset($_POST['phase'])) {
+            foreach ($_POST['phase'] as $index => $phaseName) {
+                if (trim($phaseName) === '') continue;
 
-        $calculatedResult = calculate_training_metrics($athleteId, $volRelatif, $rests, $trainingRows);
-        
-        if (isset($_POST['submit_training']) && !isset($calculatedResult['error'])) {
-            $trainingDetails = [];
-            foreach ($phases as $index => $phase) {
                 $trainingDetails[] = [
-                    'phase' => $phase,
+                    'phase' => $phaseName,
                     'duration' => (float)($_POST['duration'][$index] ?? 0),
                     'set' => $_POST['set'][$index] ?? 0,
                     'hrp' => $_POST['hrp'][$index] ?? 0,
-                    'partialIntensity' => $calculatedResult['partialIntensities'][$index] ?? 0,
                     'rest_after' => (float)($_POST['rest'][$index] ?? 0)
                 ];
             }
+        }
+        $tempTrainingData = $trainingDetails;
 
+        $calculatedResult = calculate_training_metrics($athleteId, $trainingDetails);
+        
+        foreach ($trainingDetails as $k => $v) {
+            $trainingDetails[$k]['partialIntensity'] = $calculatedResult['partialIntensities'][$k] ?? 0;
+        }
+
+        if (isset($_POST['submit_training']) && !isset($calculatedResult['error'])) {
             $formData = [
                 'date' => $_POST['date'],
                 'observer' => $_POST['observer'],
-                'volRelatif' => $volRelatif,
                 'manual_category' => $_POST['manual_category']
             ];
 
             $message = submit_training_revision($athleteId, $formData, $calculatedResult, $trainingDetails);
             if ($message === 'Data latihan berhasil disimpan!') {
                 $calculatedResult = null;
+                $tempTrainingData = [];
                 $_POST = [];
-                $athletes = $_SESSION['athletes']; // Refresh data
+                $athletes = $_SESSION['athletes']; 
             }
         }
         $currentPage = 'form';
     }
 }
 
-// --- PERSIAPAN DATA DASHBOARD & CHART ---
+// --- PERSIAPAN DATA CHART ---
 $stats = get_statistics($athletes); 
 $performanceData = array_map(function($a) {
     return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
@@ -116,7 +108,6 @@ $filteredIodCategories = count_iod_categories($athletesForPie);
 $pieChartData = generate_pie_chart_data($filteredIodCategories);
 $monthlyAvgChartData = generate_monthly_average_chart_data($athletes);
 
-// --- Logic Top 5 Atlet (Highest IOD Ever) ---
 $topAthletes = [];
 foreach ($athletes as $a) {
     $maxIod = 0;
@@ -126,33 +117,24 @@ foreach ($athletes as $a) {
             if ($val > $maxIod) $maxIod = $val;
         }
     }
-    // Fallback ke lastPerformance jika history kosong
     $lastPerf = (float)$a['lastPerformance'];
     if ($lastPerf > $maxIod) $maxIod = $lastPerf;
-
     if ($maxIod > 0) {
         $topAthletes[] = ['name' => $a['name'], 'max_iod' => $maxIod];
     }
 }
-usort($topAthletes, function($a, $b) {
-    return $b['max_iod'] <=> $a['max_iod'];
-});
+usort($topAthletes, function($a, $b) { return $b['max_iod'] <=> $a['max_iod']; });
 $top5Athletes = array_slice($topAthletes, 0, 5);
 $top5ChartData = [['Atlet', 'Max IOD']];
-foreach ($top5Athletes as $item) {
-    $top5ChartData[] = [explode(' ', $item['name'])[0], $item['max_iod']];
-}
+foreach ($top5Athletes as $item) { $top5ChartData[] = [explode(' ', $item['name'])[0], $item['max_iod']]; }
 $top5Json = json_encode($top5ChartData);
 
 // --- FUNGSI CHART HELPER ---
 function generate_google_chart_data($data) {
     $data_array = [['Atlet', 'IOD Terakhir']];
-    foreach ($data as $item) { 
-        $data_array[] = [explode(' ', $item['name'])[0], (float)$item['performa']]; 
-    }
+    foreach ($data as $item) { $data_array[] = [explode(' ', $item['name'])[0], (float)$item['performa']]; }
     return json_encode($data_array);
 }
-
 function generate_history_chart_data($trainings) {
     $data_array = [['Tanggal', 'Skor IOD']];
     foreach ($trainings as $t) {
@@ -161,7 +143,6 @@ function generate_history_chart_data($trainings) {
     }
     return json_encode($data_array);
 }
-
 function generate_pie_chart_data($data) {
     $data_array = [['Kategori IOD', 'Jumlah Latihan']];
     $order = ['Super Maximal', 'Maximum', 'Hard', 'Medium', 'Low', 'Very Low'];
@@ -172,28 +153,21 @@ function generate_pie_chart_data($data) {
     }
     return json_encode($data_array);
 }
-
 function generate_monthly_average_chart_data($athletes) {
-    $monthlySums = [];
-    $monthlyCounts = [];
-
+    $monthlySums = []; $monthlyCounts = [];
     foreach ($athletes as $athlete) {
         if (!empty($athlete['trainings'])) {
             foreach ($athlete['trainings'] as $t) {
                 $val = isset($t['iod']) ? (float)$t['iod'] : ((isset($t['performance']) && is_numeric($t['performance'])) ? (float)$t['performance'] : 0);
                 if (isset($t['date']) && $val > 0) {
                     $monthKey = date('Y-m', strtotime($t['date']));
-                    if (!isset($monthlySums[$monthKey])) {
-                        $monthlySums[$monthKey] = 0;
-                        $monthlyCounts[$monthKey] = 0;
-                    }
+                    if (!isset($monthlySums[$monthKey])) { $monthlySums[$monthKey] = 0; $monthlyCounts[$monthKey] = 0; }
                     $monthlySums[$monthKey] += $val;
                     $monthlyCounts[$monthKey]++;
                 }
             }
         }
     }
-
     ksort($monthlySums);
     $data_array = [['Bulan', 'Rata-rata IOD']];
     foreach ($monthlySums as $month => $sum) {
@@ -216,8 +190,6 @@ function generate_monthly_average_chart_data($athletes) {
     <script type="text/javascript">
         google.charts.load('current', {'packages':['corechart']});
         google.charts.setOnLoadCallback(drawCharts);
-        
-        // --- KONFIGURASI WARNA DARK MODE ---
         const darkTextStyle = { color: '#94a3b8', fontName: 'Plus Jakarta Sans', fontSize: 12 };
         const chartBgColor = { fill: 'transparent' };
         const gridlinesColor = { color: '#334155' };
@@ -229,108 +201,79 @@ function generate_monthly_average_chart_data($athletes) {
             if (document.getElementById('avg_iod_chart_div')) drawAvgIodChart();
             if (document.getElementById('top5_chart_div')) drawTop5Chart();
         }
-        
         function drawBarChart() {
             var jsonData = <?php echo generate_google_chart_data($performanceData); ?>;
             var data = new google.visualization.arrayToDataTable(jsonData);
-            
-            var options = { 
-                title: 'Indeks Kesulitan (IOD) Atlet Terakhir',
-                titleTextStyle: { color: '#f1f5f9', fontSize: 16, bold: true },
-                backgroundColor: chartBgColor,
-                legend: { position: 'none' }, 
-                colors: ['#8b5cf6'], // Violet
-                hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor },
-                vAxis: { title: 'Skor IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 }
-            };
+            var options = { title: 'Indeks Kesulitan (IOD) Atlet Terakhir', titleTextStyle: { color: '#f1f5f9', fontSize: 16, bold: true }, backgroundColor: chartBgColor, legend: { position: 'none' }, colors: ['#8b5cf6'], hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor }, vAxis: { title: 'Skor IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 } };
             var chart = new google.visualization.ColumnChart(document.getElementById('bar_chart_div'));
             chart.draw(data, options);
         }
-        
         function drawLineChart() {
             var jsonData = <?php echo generate_history_chart_data($selectedAthlete['trainings'] ?? []); ?>;
             var data = new google.visualization.arrayToDataTable(jsonData);
-            
-            var options = { 
-                title: 'Perkembangan IOD (Index of Difficulty)', 
-                titleTextStyle: { color: '#f1f5f9', fontSize: 16 },
-                backgroundColor: chartBgColor,
-                curveType: 'function', 
-                legend: { position: 'bottom', textStyle: darkTextStyle }, 
-                colors: ['#38bdf8'], // Sky Blue
-                hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor },
-                vAxis: { title: 'Skor IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 },
-                pointSize: 6
-            };
+            var options = { title: 'Perkembangan IOD (Index of Difficulty)', titleTextStyle: { color: '#f1f5f9', fontSize: 16 }, backgroundColor: chartBgColor, curveType: 'function', legend: { position: 'bottom', textStyle: darkTextStyle }, colors: ['#38bdf8'], hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor }, vAxis: { title: 'Skor IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 }, pointSize: 6 };
             var chart = new google.visualization.LineChart(document.getElementById('line_chart_div'));
             chart.draw(data, options);
         }
-
         function drawPieChart() {
             var jsonData = <?php echo $pieChartData; ?>;
             var data = new google.visualization.arrayToDataTable(jsonData);
-            var pieColors = ['#db2777', '#dc2626', '#f97316', '#facc15', '#34d399', '#94a3b8']; 
-            var options = { 
-                title: 'Distribusi Kategori IOD <?= $selectedSportFilterChart ? "($selectedSportFilterChart)" : "" ?>', 
-                titleTextStyle: { color: '#f1f5f9', fontSize: 14 },
-                backgroundColor: chartBgColor,
-                sliceVisibilityThreshold: 0, 
-                colors: pieColors,
-                legend: { position: 'right', alignment: 'center', textStyle: darkTextStyle },
-                pieSliceBorderColor: '#1e293b'
-            };
+            var options = { title: 'Distribusi Kategori IOD <?= $selectedSportFilterChart ? "($selectedSportFilterChart)" : "" ?>', titleTextStyle: { color: '#f1f5f9', fontSize: 14 }, backgroundColor: chartBgColor, sliceVisibilityThreshold: 0, colors: ['#db2777', '#dc2626', '#f97316', '#facc15', '#34d399', '#94a3b8'], legend: { position: 'right', alignment: 'center', textStyle: darkTextStyle }, pieSliceBorderColor: '#1e293b' };
             var chart = new google.visualization.PieChart(document.getElementById('pie_chart_div'));
             chart.draw(data, options);
         }
-
         function drawAvgIodChart() {
             var jsonData = <?php echo $monthlyAvgChartData; ?>;
-            if (jsonData.length <= 1) {
-                document.getElementById('avg_iod_chart_div').innerHTML = "<div style='text-align: center; padding: 4rem 1rem; color: #64748b;'><p>Belum ada cukup data.</p></div>";
-                return;
-            }
+            if (jsonData.length <= 1) { document.getElementById('avg_iod_chart_div').innerHTML = "<div style='text-align: center; padding: 4rem 1rem; color: #64748b;'><p>Belum ada cukup data.</p></div>"; return; }
             var data = new google.visualization.arrayToDataTable(jsonData);
-            var options = { 
-                title: 'Tren Rata-rata IOD Global (Per Bulan)', 
-                titleTextStyle: { color: '#f1f5f9', fontSize: 16 },
-                backgroundColor: chartBgColor,
-                curveType: 'function', 
-                legend: { position: 'bottom', textStyle: darkTextStyle }, 
-                colors: ['#10b981'], 
-                hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor },
-                vAxis: { title: 'Rata-rata IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 },
-                pointSize: 5,
-                areaOpacity: 0.1
-            };
+            var options = { title: 'Tren Rata-rata IOD Global (Per Bulan)', titleTextStyle: { color: '#f1f5f9', fontSize: 16 }, backgroundColor: chartBgColor, curveType: 'function', legend: { position: 'bottom', textStyle: darkTextStyle }, colors: ['#10b981'], hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor }, vAxis: { title: 'Rata-rata IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 }, pointSize: 5, areaOpacity: 0.1 };
             var chart = new google.visualization.AreaChart(document.getElementById('avg_iod_chart_div'));
             chart.draw(data, options);
         }
-
         function drawTop5Chart() {
             var jsonData = <?php echo $top5Json; ?>;
-            if (jsonData.length <= 1) {
-                document.getElementById('top5_chart_div').innerHTML = "<div style='text-align: center; padding: 4rem 1rem; color: #64748b;'><p>Belum ada data latihan.</p></div>";
-                return;
-            }
+            if (jsonData.length <= 1) { document.getElementById('top5_chart_div').innerHTML = "<div style='text-align: center; padding: 4rem 1rem; color: #64748b;'><p>Belum ada data latihan.</p></div>"; return; }
             var data = new google.visualization.arrayToDataTable(jsonData);
-            
-            var options = { 
-                title: 'Top 5 Atlet (Rekor IOD Tertinggi)',
-                titleTextStyle: { color: '#f1f5f9', fontSize: 16 },
-                backgroundColor: chartBgColor,
-                legend: { position: 'none' }, 
-                colors: ['#e11d48'], 
-                hAxis: { title: 'Skor IOD Tertinggi', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 },
-                vAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor }
-            };
+            var options = { title: 'Top 5 Atlet (Rekor IOD Tertinggi)', titleTextStyle: { color: '#f1f5f9', fontSize: 16 }, backgroundColor: chartBgColor, legend: { position: 'none' }, colors: ['#e11d48'], hAxis: { title: 'Skor IOD Tertinggi', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 }, vAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor } };
             var chart = new google.visualization.BarChart(document.getElementById('top5_chart_div'));
             chart.draw(data, options);
+        }
+
+        // --- JS UNTUK DYNAMIC TABLE ROW ---
+        function addTrainingRow() {
+            const tableBody = document.getElementById('training-rows');
+            const rowCount = tableBody.rows.length;
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>
+                    <input type="text" name="phase[]" class="table-input" placeholder="Nama Latihan" required>
+                </td>
+                <td><input type="number" step="0.01" name="duration[]" class="table-input" placeholder="mnt" required></td>
+                <td><input type="number" name="set[]" class="table-input" placeholder="1"></td>
+                <td><input type="number" name="hrp[]" class="table-input"></td>
+                <td><input type="number" step="0.01" name="rest[]" class="table-input" placeholder="mnt" value="0"></td>
+                <td style="text-align:center;">
+                    <button type="button" onclick="removeRow(this)" style="background:none; border:none; color:#ef4444; cursor:pointer; font-weight:bold;">X</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        }
+
+        function removeRow(btn) {
+            const row = btn.parentNode.parentNode;
+            const tableBody = document.getElementById('training-rows');
+            if(tableBody.rows.length > 1) {
+                row.parentNode.removeChild(row);
+            } else {
+                alert("Minimal satu baris latihan diperlukan.");
+            }
         }
     </script>
 </head>
 <body>
 
-    <header><div class="container"><h1>Sistem Pelatihan Atlet</h1></div></header>
+    <header><div class="container"><h1>Human Indicator Overview Device</h1></div></header>
 
     <nav>
         <div class="container">
@@ -382,106 +325,75 @@ function generate_monthly_average_chart_data($athletes) {
                             </select>
                         </form>
                     </div>
-
                     <?php if (array_sum($filteredIodCategories) > 0): ?>
                         <div id="pie_chart_div" style="width: 100%; height: 300px;"></div>
                     <?php else: ?>
-                        <div style="text-align: center; padding: 4rem 1rem; color: #64748b;">
-                            <p>Belum ada data latihan.</p>
-                        </div>
+                        <div style="text-align: center; padding: 4rem 1rem; color: #64748b;"><p>Belum ada data latihan.</p></div>
                     <?php endif; ?>
                 </div>
             </div>
-
             <div class="panel" style="margin-top: 1.5rem;">
                 <h3>Perkembangan Rata-rata IOD Global</h3>
                 <div id="avg_iod_chart_div" style="width: 100%; height: 350px;"></div>
             </div>
-
             <div class="panel" style="margin-top: 1.5rem;">
                 <h3>Top 5 Atlet (Rekor IOD Tertinggi)</h3>
                 <div id="top5_chart_div" style="width: 100%; height: 350px;"></div>
             </div>
             
-            <?php elseif ($currentPage === 'list_athlete'): ?>
-            
+        <?php elseif ($currentPage === 'list_athlete'): ?>
             <?php
             $filterSport = $_GET['filter_sport'] ?? '';
             $filterObserver = $_GET['filter_observer'] ?? '';
             $filteredAthletes = $athletes;
-
             if (!empty($filterSport)) {
                 $filteredAthletes = array_filter($filteredAthletes, function($a) use ($filterSport) {
                     return isset($a['sport']) && strcasecmp($a['sport'], $filterSport) === 0;
                 });
             }
-
             if (!empty($filterObserver)) {
                 $filteredAthletes = array_filter($filteredAthletes, function($a) use ($filterObserver) {
                     if (empty($a['trainings'])) return false; 
                     foreach ($a['trainings'] as $t) {
-                        if (isset($t['observer']) && $t['observer'] === $filterObserver) {
-                            return true;
-                        }
+                        if (isset($t['observer']) && $t['observer'] === $filterObserver) { return true; }
                     }
                     return false;
                 });
             }
             ?>
-
             <div class="panel">
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.5rem; gap: 1rem;">
                     <h3>Daftar Atlet</h3>
-                    
                     <form method="GET" action="" style="display: flex; gap: 0.5rem; align-items: center;">
                         <input type="hidden" name="page" value="list_athlete">
-                        
                         <div>
                             <select name="filter_sport" class="form-select" style="width: 150px;">
                                 <option value="">- Semua Cabor -</option>
                                 <?php foreach ($uniqueSports as $sport): ?>
-                                    <option value="<?= htmlspecialchars($sport) ?>" <?= $filterSport === $sport ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($sport) ?>
-                                    </option>
+                                    <option value="<?= htmlspecialchars($sport) ?>" <?= $filterSport === $sport ? 'selected' : '' ?>><?= htmlspecialchars($sport) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-
                         <div>
                             <select name="filter_observer" class="form-select" style="width: 150px;">
                                 <option value="">- Semua Pengamat -</option>
                                 <?php foreach ($allObservers as $obs): ?>
-                                    <option value="<?= htmlspecialchars($obs) ?>" <?= $filterObserver === $obs ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($obs) ?>
-                                    </option>
+                                    <option value="<?= htmlspecialchars($obs) ?>" <?= $filterObserver === $obs ? 'selected' : '' ?>><?= htmlspecialchars($obs) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
                         <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem;">Filter</button>
                         <?php if($filterSport || $filterObserver): ?>
                             <a href="?page=list_athlete" class="btn" style="background: #334155; color: white; padding: 0.5rem 1rem;">Reset</a>
                         <?php endif; ?>
                     </form>
                 </div>
-
                 <div class="table-container">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Nama</th>
-                                <th>Gender</th>
-                                <th>Cabor</th>
-                                <th>Asal</th>
-                                <th>IOD Terakhir</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>Nama</th><th>Gender</th><th>Cabor</th><th>Asal</th><th>IOD Terakhir</th><th>Aksi</th></tr></thead>
                         <tbody>
                             <?php if(empty($filteredAthletes)): ?>
-                                <tr>
-                                    <td colspan="6" style="text-align: center; padding: 2rem;">Tidak ada data atlet yang sesuai filter.</td>
-                                </tr>
+                                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Tidak ada data atlet yang sesuai filter.</td></tr>
                             <?php else: ?>
                                 <?php foreach ($filteredAthletes as $athlete): ?>
                                 <tr>
@@ -551,14 +463,7 @@ function generate_monthly_average_chart_data($athletes) {
                     <div class="form-grid">
                         <div class="form-group"><label>Tanggal</label><input type="date" name="date" value="<?= $_POST['date'] ?? date('Y-m-d') ?>" class="form-input"></div>
                         <div class="form-group">
-                            <label>Volume Relatif (Total Waktu Sesi)</label>
-                            <input type="number" step="0.01" name="volRelatif" value="<?= $_POST['volRelatif'] ?? '' ?>" class="form-input" required placeholder="Contoh: 120.5">
-                        </div>
-                    </div>
-                    
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Klasifikasi Latihan</label>
+                            <label>Klasifikasi Latihan (Manual)</label>
                             <select name="manual_category" class="form-select" required>
                                 <option value="">-- Pilih --</option>
                                 <option value="Ringan" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Ringan') ? 'selected' : '' ?>>Ringan</option>
@@ -567,42 +472,46 @@ function generate_monthly_average_chart_data($athletes) {
                             </select>
                         </div>
                     </div>
+                    
+                 
+
                     <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
 
                     <div class="table-container">
                         <table class="input-table">
                             <thead>
                                 <tr>
-                                    <th width="30%">Bentuk Latihan</th>
-                                    <th>Durasi Exercise (menit)</th>
-                                    <th width="15%">Set</th>
-                                    <th width="15%">HRP</th>
+                                    <th width="30%">Bentuk Latihan (Fase)</th>
+                                    <th>Durasi Exercise (mnt)</th>
+                                    <th width="10%">Set</th>
+                                    <th width="10%">HRP</th>
+                                    <th width="15%">Rest (mnt)</th>
+                                    <th width="5%"></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="training-rows">
                                 <?php 
-                                $phases = ['Warmup', 'Pemanasan Khusus', 'Beregu Full', 'Visualisasi', 'Cooling Down'];
-                                foreach ($phases as $index => $phase): 
+                                $rowsToRender = !empty($tempTrainingData) ? $tempTrainingData : [['phase'=>'','duration'=>'','set'=>'','hrp'=>'','rest_after'=>'']];
+                                foreach ($rowsToRender as $row): 
                                 ?>
                                     <tr>
-                                        <td class="phase-name"><?= $phase ?></td>
-                                        <td><input type="number" step="0.01" name="duration[]" value="<?= $_POST['duration'][$index] ?? '' ?>" class="table-input" placeholder="mnt"></td>
-                                        <td><input type="number" name="set[]" value="<?= $_POST['set'][$index] ?? '' ?>" class="table-input" placeholder="1"></td>
-                                        <td><input type="number" name="hrp[]" value="<?= $_POST['hrp'][$index] ?? '' ?>" class="table-input"></td>
-                                    </tr>
-                                    <?php if ($index < count($phases)): ?>
-                                    <tr class="rest-row">
-                                        <td colspan="4">
-                                            <div style="display: flex; align-items: center; gap: 10px;">
-                                                <span>REST (mnt):</span>
-                                                <input type="number" step="0.01" name="rest[]" value="<?= $_POST['rest'][$index] ?? 0 ?>" class="form-input" style="width: 80px;">
-                                            </div>
+                                        <td>
+                                            <input type="text" name="phase[]" value="<?= htmlspecialchars($row['phase']) ?>" class="table-input" placeholder="Nama Latihan" required>
+                                        </td>
+                                        <td><input type="number" step="0.01" name="duration[]" value="<?= $row['duration'] ?>" class="table-input" placeholder="mnt" required></td>
+                                        <td><input type="number" name="set[]" value="<?= $row['set'] ?>" class="table-input" placeholder="1"></td>
+                                        <td><input type="number" name="hrp[]" value="<?= $row['hrp'] ?>" class="table-input"></td>
+                                        <td><input type="number" step="0.01" name="rest[]" value="<?= $row['rest_after'] ?? $row['rest'] ?? 0 ?>" class="table-input" placeholder="mnt"></td>
+                                        <td style="text-align:center;">
+                                            <button type="button" onclick="removeRow(this)" style="background:none; border:none; color:#ef4444; cursor:pointer; font-weight:bold;">X</button>
                                         </td>
                                     </tr>
-                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        <div style="margin-top: 10px;">
+                            <button type="button" onclick="addTrainingRow()" class="btn" style="background-color: #475569; color: white; padding: 0.5rem 1rem; font-size: 0.875rem;">+ Tambah Baris</button>
+                        </div>
                     </div>
 
                     <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
@@ -624,6 +533,11 @@ function generate_monthly_average_chart_data($athletes) {
                             </span>
                         </div>
                         <div class="form-grid">
+                            <div class="result-item" style="border: 2px solid #3b82f6; background-color: #eff6ff;">
+                                <p class="label" style="color: #1d4ed8;">Volume Relatif (Total Time)</p>
+                                <p class="value" style="color: #1e40af;"><?= number_format($calculatedResult['volRelatif'], 2) ?> mnt</p>
+                            </div>
+                            
                             <div class="result-item"><p class="label">Absolute Density</p><p class="value"><?= number_format($calculatedResult['absoluteDensity'], 2) ?>%</p></div>
                             <div class="result-item"><p class="label">Overall Intensity</p><p class="value"><?= number_format($calculatedResult['overallIntensity'], 2) ?>%</p></div>
                             <div class="result-item"><p class="label">Volume Absolute</p><p class="value"><?= number_format($calculatedResult['volAbsolute'], 2) ?> mnt</p></div>
@@ -662,9 +576,33 @@ function generate_monthly_average_chart_data($athletes) {
                 <?php foreach (array_reverse($selectedAthlete['trainings']) as $t): ?>
                     <div class="training-detail" style="margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
                         <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.5); padding: 1rem; border-bottom: 1px solid var(--border);">
-                            <div>
-                                <strong style="color: var(--primary);"><?= $t['date'] ?></strong> | Observer: <span style="color: var(--text-muted);"><?= $t['observer'] ?></span>
-                            </div>
+                           <div>
+                            <strong style="color: var(--primary); font-size: 1.1rem;">
+                                <?= $t['date'] ?>
+                            </strong> 
+                            <span style="color: var(--text-muted); margin-left: 5px;">
+                                | Observer: <?= $t['observer'] ?>
+                            </span>
+
+                            <br>
+
+                            <?php 
+                                $manualLabel = $t['manual_category'] ?? '-';
+                                
+                                // Logika Warna Badge
+                                $badgeColorClass = 'badge-very-low'; // Default
+                                if ($manualLabel === 'Berat') {
+                                    $badgeColorClass = 'badge-hard';
+                                } elseif ($manualLabel === 'Sedang') {
+                                    $badgeColorClass = 'badge-medium';
+                                } elseif ($manualLabel === 'Ringan') {
+                                    $badgeColorClass = 'badge-low';
+                                }
+                            ?>
+                            <span class="iod-badge <?= $badgeColorClass ?>" style="font-size: 0.75rem; padding: 3px 8px; margin-top: 5px;">
+                                <?= htmlspecialchars($manualLabel) ?>
+                            </span>
+                        </div>
                             <div style="text-align: right;">
                                 <span style="font-size: 0.8rem; color: var(--text-muted);">IOD SCORE</span><br>
                                 <span style="font-size: 1.5rem; font-weight: bold; color: white;">
@@ -677,6 +615,16 @@ function generate_monthly_average_chart_data($athletes) {
                                 <?php endif; ?>
                             </div>
                         </div>
+
+                         <?php if(isset($t['iod'])): ?>
+                        <div class="history-grid" style="margin-bottom: 1rem;">
+                             <div class="history-item"><p class="label">Vol Relatif</p><p class="value" style="color:#2563eb;"><?= isset($t['volRelatif']) ? number_format($t['volRelatif'], 2) : '-' ?></p></div>
+                            <div class="history-item"><p class="label">Abs. Density</p><p class="value"><?= number_format($t['absoluteDensity'], 2) ?>%</p></div>
+                            <div class="history-item"><p class="label">Ov. Intensity</p><p class="value"><?= number_format($t['overallIntensity'], 2) ?>%</p></div>
+                            <div class="history-item"><p class="label">Vol Absolute</p><p class="value"><?= number_format($t['volAbsolute'], 2) ?></p></div>
+                        </div>
+                        
+                        <?php endif; ?>
                         <?php if (isset($t['details'])): ?>
                             <div class="table-container" style="border: none; border-radius: 0;">
                                 <table class="input-table" style="font-size: 0.85rem; border: none;">
@@ -695,7 +643,7 @@ function generate_monthly_average_chart_data($athletes) {
                                             <td><?= $d['set'] ?? '-' ?></td>
                                             <td><?= $d['hrp'] ?></td>
                                             <td><?= isset($d['partialIntensity']) ? number_format($d['partialIntensity'], 1) : '-' ?>%</td>
-                                            <td style="color: #fb923c; font-weight: bold;"><?= $d['rest_after'] ?>'</td>
+                                            <td style="color: #fb923c; font-weight: bold;"><?= isset($d['rest_after']) ? $d['rest_after'] : 0 ?>'</td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </table>
