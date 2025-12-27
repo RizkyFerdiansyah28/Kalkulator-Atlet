@@ -4,9 +4,8 @@ include 'functions.php';
 $selectedAthlete = null;
 if (isset($_GET['athlete_id'])) {
     $athleteId = (int)$_GET['athlete_id'];
-    if (isset($athletes[$athleteId])) {
-        $selectedAthlete = $athletes[$athleteId];
-    }
+    // Panggil fungsi baru dari functions.php yang mengambil data dari DB
+    $selectedAthlete = get_athlete_full_detail($athleteId);
 }
 
 if (!$selectedAthlete) {

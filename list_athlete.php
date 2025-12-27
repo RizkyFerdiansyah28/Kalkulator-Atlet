@@ -134,7 +134,17 @@ if (!empty($filterObserver)) {
                                         <span style="color: #64748b;">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><a href="detail_atlet.php?athlete_id=<?= $athlete['id'] ?>" class="detail-button">Lihat Detail</a></td>
+                                <td>
+                                    <a href="detail_atlet.php?athlete_id=<?= $athlete['id'] ?>" class="detail-button">Lihat Detail</a>
+                                </td>
+                                <td>
+                                    <a href="hapus_atlet.php?id=<?= $athlete['id'] ?>" 
+                                    class="detail-button" 
+                                    style="background-color: #ef4444; color: white;"
+                                    onclick="return confirm('Yakin ingin menghapus atlet ini? Seluruh data riwayat latihan juga akan terhapus permanen.');">
+                                    Hapus
+                                    </a>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

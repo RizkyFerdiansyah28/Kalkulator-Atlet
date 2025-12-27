@@ -44,12 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_athlete'])) {
                     <div class="form-group"><label>Usia</label><input type="number" name="age" class="form-input" required></div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Asal</label><input type="text" name="origin" class="form-input"></div>
-                    <div class="form-group"><label>Cabor</label><input type="text" name="sport" class="form-input"></div>
+                    <div class="form-group"><label>Asal</label><input type="text" name="origin" class="form-input" required></div>
+                    <div class="form-group"><label>Cabor</label><input type="text" name="sport" class="form-input" required></div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Berat (kg)</label><input type="number" step="0.1" name="weight" class="form-input"></div>
-                    <div class="form-group"><label>Tinggi (cm)</label><input type="number" name="height" class="form-input"></div>
+                    <div class="form-group"><label>Berat (kg)</label><input type="number" step="0.1" name="weight" class="form-input" required></div>
+                    <div class="form-group"><label>Tinggi (cm)</label><input type="number" name="height" class="form-input" required></div>
                 </div>
                 <button type="submit" name="submit_athlete" class="btn btn-primary" style="margin-top: 1rem;">Simpan</button>
             </form>

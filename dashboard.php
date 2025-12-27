@@ -9,16 +9,14 @@ $performanceData = array_map(function($a) {
     return ['name' => explode(' ', $a['name'])[0], 'performa' => (float)$a['lastPerformance']];
 }, $athletes);
 
+// --- Bagian Lama yang dihapus/diganti ---
 // Filter Data untuk Pie Chart
 $selectedSportFilterChart = $_GET['chart_sport_filter'] ?? '';
-$athletesForPie = $athletes;
-if (!empty($selectedSportFilterChart)) {
-    $athletesForPie = array_filter($athletes, function($a) use ($selectedSportFilterChart) {
-        return isset($a['sport']) && strcasecmp($a['sport'], $selectedSportFilterChart) === 0;
-    });
-}
-$filteredIodCategories = count_iod_categories($athletesForPie);
+
+// KITA LANGSUNG PANGGIL FUNGSI DATABASE DENGAN PARAMETER SPORT
+$filteredIodCategories = count_iod_categories($selectedSportFilterChart);
 $pieChartData = generate_pie_chart_data($filteredIodCategories);
+
 $monthlyAvgChartData = generate_monthly_average_chart_data($athletes);
 
 // Data Pendukung Dropdown Filter Chart

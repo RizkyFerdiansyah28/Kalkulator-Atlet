@@ -1,156 +1,251 @@
 <?php
-// Pastikan path vendor/autoload.php sesuai dengan instalasi Anda
+// cetak_pdf.php - Versi Database dengan Grafik (QuickChart.io)
+
 require 'vendor/autoload.php'; 
+include 'functions.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
-include 'functions.php'; // Sertakan data & session
+// 1. Ambil ID Atlet
+$athleteId = isset($_GET['athlete_id']) ? (int)$_GET['athlete_id'] : 0;
+$athlete = get_athlete_full_detail($athleteId);
 
-$selectedAthlete = null;
-if (isset($_GET['athlete_id'])) {
-    $athleteId = (int)$_GET['athlete_id'];
-    if (isset($athletes[$athleteId])) {
-        $selectedAthlete = $athletes[$athleteId];
+if (!$athlete) {
+    die("Data atlet tidak ditemukan di database.");
+}
+
+// 2. Siapkan Data untuk Grafik (Diurutkan berdasarkan Tanggal Terlama -> Terbaru)
+// Data dari get_athlete_full_detail sudah urut ASC (Terlama di awal)
+$chartDates = [];
+$chartIODs = [];
+
+if (!empty($athlete['trainings'])) {
+    foreach ($athlete['trainings'] as $t) {
+        $chartDates[] = date('d/m', strtotime($t['date'])); // Format tgl: 25/12
+        $chartIODs[] = (float)$t['iod'];
     }
 }
 
-if (!$selectedAthlete) {
-    echo "Data atlet tidak ditemukan.";
-    exit;
-}
+// 3. Buat URL Gambar Grafik menggunakan QuickChart.io
+// Kita buat konfigurasi Chart.js v2 dalam format JSON
+$chartConfig = [
+    'type' => 'line',
+    'data' => [
+        'labels' => $chartDates,
+        'datasets' => [[
+            'label' => 'Skor IOD',
+            'backgroundColor' => 'rgba(59, 130, 246, 0.1)', // Warna biru transparan
+            'borderColor' => '#3b82f6', // Warna garis biru
+            'borderWidth' => 2,
+            'pointRadius' => 3,
+            'pointBackgroundColor' => '#1d4ed8',
+            'data' => $chartIODs,
+            'fill' => true,
+        ]]
+    ],
+    'options' => [
+        'title' => [
+            'display' => true,
+            'text' => 'Grafik Perkembangan IOD',
+            'fontSize' => 14,
+            'fontColor' => '#1e293b'
+        ],
+        'legend' => ['display' => false],
+        'scales' => [
+            'yAxes' => [[
+                'ticks' => ['beginAtZero' => true],
+                'gridLines' => ['color' => 'rgba(0, 0, 0, 0.05)']
+            ]],
+            'xAxes' => [[
+                'gridLines' => ['display' => false]
+            ]]
+        ]
+    ]
+];
 
-// 1. SIAPKAN DATA GRAFIK UNTUK QUICKCHART.IO
-// Kita perlu mengubah data array PHP menjadi format Chart.js untuk QuickChart
-$chartLabels = [];
-$chartData = [];
+// Encode ke URL
+$chartUrl = 'https://quickchart.io/chart?c=' . urlencode(json_encode($chartConfig)) . '&w=700&h=300';
 
-if (!empty($selectedAthlete['trainings'])) {
-    foreach ($selectedAthlete['trainings'] as $t) {
-        $chartLabels[] = date('d/m', strtotime($t['date'])); // Format tgl pendek
-        $val = isset($t['iod']) ? (float)$t['iod'] : ((isset($t['performance']) && is_numeric($t['performance'])) ? (float)$t['performance'] : 0);
-        $chartData[] = $val;
-    }
-}
+// 4. Setup Dompdf
+$options = new Options();
+$options->set('isRemoteEnabled', true); // WAJIB TRUE agar bisa load gambar dari URL (QuickChart)
+$dompdf = new Dompdf($options);
 
-// Konversi ke JSON string untuk URL
-$labelsJson = json_encode($chartLabels);
-$dataJson = json_encode($chartData);
-
-// Buat URL QuickChart (Line Chart)
-$chartConfig = "{
-    type: 'line',
-    data: {
-        labels: $labelsJson,
-        datasets: [{
-            label: 'IOD Score',
-            data: $dataJson,
-            borderColor: 'blue',
-            fill: false,
-            tension: 0.1
-        }]
-    },
-    options: {
-        title: { display: true, text: 'Perkembangan IOD' },
-        scales: {
-            yAxes: [{ ticks: { beginAtZero: true } }]
-        }
-    }
-}";
-$encodedConfig = urlencode($chartConfig);
-$chartUrl = "https://quickchart.io/chart?c=" . $encodedConfig . "&w=500&h=300";
-
-// 2. SIAPKAN HTML UNTUK PDF
-// Gunakan CSS internal agar lebih aman saat generate PDF
+// 5. Buat HTML Content
 $html = '
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Laporan Atlet - '.htmlspecialchars($athlete['name']).'</title>
     <style>
-        body { font-family: sans-serif; font-size: 12px; color: #333; }
-        h1 { text-align: center; color: #1e40af; margin-bottom: 5px; }
-        .header-info { text-align: center; margin-bottom: 20px; font-size: 10px; color: #666; }
+        body { font-family: sans-serif; color: #333; font-size: 12px; }
         
-        .profile-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .profile-table td { padding: 5px; border-bottom: 1px solid #ddd; }
-        .label { font-weight: bold; width: 150px; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; }
+        .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; color: #1e293b; }
+        .header p { margin: 5px 0 0; font-size: 12px; color: #64748b; }
         
-        .chart-container { text-align: center; margin-bottom: 20px; }
+        /* Section Profil */
+        .profile-section { margin-bottom: 20px; background-color: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .profile-table { width: 100%; border-collapse: collapse; }
+        .profile-table td { padding: 5px; font-size: 13px; vertical-align: top; }
+        .label { font-weight: bold; width: 130px; color: #475569; }
         
-        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .history-table th, .history-table td { border: 1px solid #999; padding: 8px; text-align: left; }
-        .history-table th { background-color: #eee; }
+        /* Section Grafik */
+        .chart-section { text-align: center; margin-bottom: 30px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .chart-img { width: 100%; height: auto; max-height: 300px; }
+
+        /* Section History */
+        .history-section h3 { 
+            border-left: 5px solid #3b82f6; 
+            padding-left: 10px; 
+            color: #0f172a; 
+            margin-top: 20px;
+            margin-bottom: 15px;
+        }
         
-        .iod-badge { padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; background-color: #666; }
+        .session-container { page-break-inside: avoid; margin-bottom: 25px; }
+        .summary-box { 
+            background: #eff6ff; 
+            padding: 10px; 
+            border: 1px solid #bfdbfe; 
+            border-radius: 6px 6px 0 0; 
+            margin-bottom: 0;
+        }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1; }
+        .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
+        .data-table th { background-color: #e2e8f0; color: #334155; font-weight: bold; text-transform: uppercase; }
+        .data-table tr:nth-child(even) { background-color: #f8fafc; }
+        
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 10px; color: white; font-weight: bold; display: inline-block; text-transform: uppercase; }
+        .badge-super-maximal { background-color: #db2777; }
+        .badge-maximum { background-color: #dc2626; }
+        .badge-hard { background-color: #f97316; }
+        .badge-medium { background-color: #eab308; color: black; }
+        .badge-low { background-color: #22c55e; }
+        .badge-very-low { background-color: #94a3b8; }
+        
+        .table-footer { background-color: #f1f5f9; font-weight: bold; font-size: 11px; }
     </style>
 </head>
 <body>
-    <h1>Laporan Detail Atlet</h1>
-    <div class="header-info">Dicetak pada: ' . date('d-m-Y H:i') . '</div>
 
-    <h3>Profil Atlet</h3>
-    <table class="profile-table">
-        <tr><td class="label">Nama</td><td>' . htmlspecialchars($selectedAthlete['name']) . '</td></tr>
-        <tr><td class="label">Cabor</td><td>' . htmlspecialchars($selectedAthlete['sport']) . '</td></tr>
-        <tr><td class="label">Asal</td><td>' . htmlspecialchars($selectedAthlete['origin']) . '</td></tr>
-        <tr><td class="label">Gender</td><td>' . htmlspecialchars($selectedAthlete['gender']) . '</td></tr>
-        <tr><td class="label">Usia</td><td>' . $selectedAthlete['age'] . ' Tahun</td></tr>
-    </table>
-
-    <h3>Grafik Perkembangan</h3>
-    <div class="chart-container">
-        <img src="' . $chartUrl . '" style="width: 100%; max-width: 600px;">
+    <div class="header">
+        <h1>Human Indicator Overview Device</h1>
+        <p>Laporan Riwayat Latihan Atlet</p>
     </div>
 
-    <h3>Riwayat Latihan</h3>
-    <table class="history-table">
-        <thead>
+    <div class="profile-section">
+        <table class="profile-table">
             <tr>
-                <th>Tanggal</th>
-                <th>Observer</th>
-                <th>Kategori</th>
-                <th>IOD Score</th>
-                <th>Klasifikasi</th>
+                <td class="label">Nama Lengkap</td><td>: '.htmlspecialchars($athlete['name']).'</td>
+                <td class="label">Cabang Olahraga</td><td>: '.htmlspecialchars($athlete['sport']).'</td>
             </tr>
-        </thead>
-        <tbody>';
+            <tr>
+                <td class="label">Jenis Kelamin</td><td>: '.htmlspecialchars($athlete['gender']).'</td>
+                <td class="label">Asal Daerah</td><td>: '.htmlspecialchars($athlete['origin']).'</td>
+            </tr>
+            <tr>
+                <td class="label">Usia</td><td>: '.$athlete['age'].' Tahun</td>
+                <td class="label">Postur</td><td>: '.$athlete['height'].' cm / '.$athlete['weight'].' kg</td>
+            </tr>
+        </table>
+    </div>';
 
-        if (!empty($selectedAthlete['trainings'])) {
-            // Urutkan dari terbaru
-            $riwayat = array_reverse($selectedAthlete['trainings']);
-            foreach ($riwayat as $t) {
-                $iod = isset($t['iod']) ? number_format($t['iod'], 2) : '-';
-                $class = $t['iodClass'] ?? '-';
-                $manual = $t['manual_category'] ?? '-';
-                
-                $html .= '<tr>
-                    <td>' . $t['date'] . '</td>
-                    <td>' . $t['observer'] . '</td>
-                    <td>' . $manual . '</td>
-                    <td><strong>' . $iod . '</strong></td>
-                    <td>' . $class . '</td>
-                </tr>';
-            }
+    // Tampilkan Grafik jika ada data
+    if (!empty($chartIODs)) {
+        $html .= '
+        <div class="chart-section">
+            <img src="'.$chartUrl.'" class="chart-img" alt="Grafik IOD">
+        </div>';
+    }
+
+    $html .= '
+    <div class="history-section">
+        <h3>Riwayat Detail Latihan</h3>';
+
+        if (empty($athlete['trainings'])) {
+            $html .= '<div style="padding: 20px; text-align: center; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1;">Belum ada riwayat latihan yang tercatat.</div>';
         } else {
-            $html .= '<tr><td colspan="5" style="text-align:center">Belum ada data latihan</td></tr>';
+            // Loop data sesi latihan (urutkan dari terbaru ke terlama untuk tabel list)
+            $trainings = array_reverse($athlete['trainings']);
+            
+            foreach ($trainings as $t) {
+                $iodClass = $t['iod_class'] ?? '-';
+                $badgeClass = getBadgeClass($iodClass);
+                $manualCat = $t['manual_category'] ?? '-';
+                
+                $html .= '
+                <div class="session-container">
+                    <div class="summary-box">
+                        <table style="width:100%; font-size:12px;">
+                            <tr>
+                                <td width="25%"><strong>Tanggal:</strong><br>'.date('d M Y', strtotime($t['date'])).'</td>
+                                <td width="25%"><strong>Observer:</strong><br>'.htmlspecialchars($t['observer']).'</td>
+                                <td width="25%"><strong>Kategori Latihan:</strong><br>'.$manualCat.'</td>
+                                <td width="25%" style="text-align:right;">
+                                    <span style="font-size:10px; color:#64748b;">IOD SCORE</span><br>
+                                    <strong style="font-size:16px; color:#0f172a;">'.number_format($t['iod'], 2).'</strong>
+                                    <br><span class="badge '.$badgeClass.'" style="margin-top:2px;">'.$iodClass.'</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="30%">Fase Latihan</th>
+                                <th width="15%">Durasi (mnt)</th>
+                                <th width="10%">Set</th>
+                                <th width="10%">HRP</th>
+                                <th width="20%">Intensitas Parsial</th>
+                                <th width="15%">Rest (mnt)</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+                            
+                            if (!empty($t['details'])) {
+                                foreach ($t['details'] as $d) {
+                                    $html .= '
+                                    <tr>
+                                        <td>'.htmlspecialchars($d['phase']).'</td>
+                                        <td>'.number_format($d['duration'], 2).'</td>
+                                        <td>'.$d['set'].'</td>
+                                        <td>'.$d['hrp'].'</td>
+                                        <td>'.number_format($d['partialIntensity'], 1).'%</td>
+                                        <td style="color: #ea580c; font-weight:bold;">'.number_format($d['rest_after'], 2).'</td>
+                                    </tr>';
+                                }
+                            } else {
+                                $html .= '<tr><td colspan="6" style="text-align:center;">Detail tidak tersedia</td></tr>';
+                            }
+                            
+                $html .= '
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-footer">
+                                <td colspan="2">Vol. Abs: '.number_format($t['vol_absolute'], 2).' mnt</td>
+                                <td colspan="2">Vol. Rel: '.number_format($t['vol_relatif'], 2).' mnt</td>
+                                <td colspan="2" style="text-align:right;">Densitas: '.number_format($t['absolute_density'], 1).'%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>';
+            }
         }
 
 $html .= '
-        </tbody>
-    </table>
+    </div>
 </body>
 </html>';
 
-// 3. GENERATE PDF MENGGUNAKAN DOMPDF
-$options = new Options();
-$options->set('isRemoteEnabled', true); // Penting agar bisa load gambar dari URL luar (QuickChart)
-$dompdf = new Dompdf($options);
-
+// 6. Render PDF
 $dompdf->loadHtml($html);
 $dompdf->setPaper('A4', 'portrait');
 $dompdf->render();
 
-// Output file PDF ke browser (Download/Preview)
-$dompdf->stream("Laporan_Atlet_" . str_replace(' ', '_', $selectedAthlete['name']) . ".pdf", array("Attachment" => 0));
-
+// 7. Output ke Browser
+$dompdf->stream("Laporan_Atlet_".str_replace(' ', '_', $athlete['name']).".pdf", array("Attachment" => false));
 ?>

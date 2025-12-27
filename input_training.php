@@ -5,8 +5,8 @@ $message = null;
 $calculatedResult = null;
 $definedObservers = ['Coach Budi', 'Coach Sarah', 'Coach Dimas'];
 
-// Pastikan data atlet tersedia
-$athletes = $_SESSION['athletes'] ?? [];
+// UPDATE: Ambil data atlet terbaru dari Database (bukan Session lagi)
+$athletes = get_all_athletes();
 
 // Fungsi bantu klasifikasi (untuk update realtime jika manual input)
 function getIodClassLocal($iod) {
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // 4. SIMPAN KE DATABASE/SESSION
+            // 4. SIMPAN KE DATABASE
             if (isset($_POST['submit_training']) && !isset($calculatedResult['error'])) {
                 $formData = [
                     'date' => $_POST['date'],
@@ -91,7 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($message === 'Data latihan berhasil disimpan!') {
                     $calculatedResult = null;
                     $_POST = []; 
-                    $athletes = $_SESSION['athletes']; 
+                    // UPDATE: Refresh data atlet dari database lagi
+                    $athletes = get_all_athletes(); 
                 }
             }
         }
@@ -118,8 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;
         }
         .btn-add:hover { background-color: #2563eb; }
-        
-        /* Highlight input manual */
         .manual-input { border-color: #f59e0b; background-color: #fffbeb; }
     </style>
 </head>
@@ -196,10 +195,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ?>
                             <tr>
                                 <td><input type="text" name="phase[]" value="<?= $_POST['phase'][$index] ?? '' ?>" class="table-input" placeholder="Contoh: Lari" required></td>
-                                <td><input type="number" step="0.01" name="duration[]" value="<?= $_POST['duration'][$index] ?? '' ?>" class="table-input calc-trigger" placeholder="0"></td>
-                                <td><input type="number" name="set[]" value="<?= $_POST['set'][$index] ?? '' ?>" class="table-input" placeholder="1"></td>
-                                <td><input type="number" name="hrp[]" value="<?= $_POST['hrp'][$index] ?? '' ?>" class="table-input" placeholder="0"></td>
-                                <td><input type="number" step="0.01" name="rest[]" value="<?= $_POST['rest'][$index] ?? '' ?>" class="table-input calc-trigger" placeholder="0"></td>
+                                <td><input type="number" step="0.01" name="duration[]" value="<?= $_POST['duration'][$index] ?? '' ?>" class="table-input calc-trigger" placeholder="0" required></td>
+                                <td><input type="number" name="set[]" value="<?= $_POST['set'][$index] ?? '' ?>" class="table-input" placeholder="1" required></td>
+                                <td><input type="number" name="hrp[]" value="<?= $_POST['hrp'][$index] ?? '' ?>" class="table-input" placeholder="0" required></td>
+                                <td><input type="number" step="0.01" name="rest[]" value="<?= $_POST['rest'][$index] ?? '' ?>" class="table-input calc-trigger" placeholder="0" required></td>
                                 <td style="text-align: center;">
                                     <?php if($index > 0): ?>
                                         <button type="button" class="btn-remove" onclick="removeRow(this)">×</button>
@@ -248,7 +247,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </main>
 
     <script>
-        // Fungsi untuk menambah baris
         function addRow() {
             const tableBody = document.querySelector('#dynamicTable tbody');
             const newRow = document.createElement('tr');
@@ -267,50 +265,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             tableBody.appendChild(newRow);
         }
 
-        // Fungsi untuk menghapus baris
         function removeRow(button) {
             const row = button.closest('tr');
             row.remove();
-            calculateVolRelatif(); // Hitung ulang setelah hapus
+            calculateVolRelatif();
         }
 
-        // Fungsi Hitung Otomatis Volume Relatif
         function calculateVolRelatif() {
             let totalDuration = 0;
             let totalRest = 0;
             
-            // Ambil semua input durasi
             const durations = document.querySelectorAll('input[name="duration[]"]');
             durations.forEach(input => {
                 const val = parseFloat(input.value);
                 if (!isNaN(val)) totalDuration += val;
             });
             
-            // Ambil semua input rest
             const rests = document.querySelectorAll('input[name="rest[]"]');
             rests.forEach(input => {
                 const val = parseFloat(input.value);
                 if (!isNaN(val)) totalRest += val;
             });
             
-            // Rumus: Total Latihan + Total Istirahat
             const volRelatif = totalDuration + totalRest;
-            
-            // Update input
-            const volInput = document.getElementById('volRelatifInput');
-            if (volInput) {
-                volInput.value = volRelatif.toFixed(2);
-            }
+            // Jika ada input manual volRelatif (opsional, jika Anda menambahkannya di masa depan)
         }
 
-        // Event Listener Global untuk input dinamis
         document.addEventListener('input', function(e) {
             if (e.target.classList.contains('calc-trigger')) {
                 calculateVolRelatif();
             }
         });
         
-        // Jalankan sekali saat halaman load
         window.addEventListener('load', calculateVolRelatif);
     </script>
 </body>
