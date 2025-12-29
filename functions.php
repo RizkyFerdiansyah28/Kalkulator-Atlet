@@ -354,5 +354,73 @@ function delete_athlete($id) {
     } else {
         return 0;
     }
+
+    
+}
+?><?php
+// ... (Kode koneksi dan fungsi lama TETAP SAMA, jangan dihapus) ...
+
+// --- FUNGSI TAMBAHAN: CABOR & PENGAMAT (Insert di bagian bawah file) ---
+
+// Ambil semua list Cabor
+function get_all_sports() {
+    global $conn;
+    $list = [];
+    $result = mysqli_query($conn, "SELECT * FROM sports ORDER BY name ASC");
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $list[] = $row;
+        }
+    }
+    return $list;
+}
+
+// Tambah Cabor Baru
+function add_sport_category($name) {
+    global $conn;
+    $name = trim(htmlspecialchars($name));
+    if (empty($name)) return "Nama Cabor tidak boleh kosong.";
+    
+    // Cek duplikat
+    $check = mysqli_query($conn, "SELECT id FROM sports WHERE name = '$name'");
+    if (mysqli_num_rows($check) > 0) return "Cabor '$name' sudah ada.";
+
+    $stmt = mysqli_prepare($conn, "INSERT INTO sports (name) VALUES (?)");
+    mysqli_stmt_bind_param($stmt, "s", $name);
+    if (mysqli_stmt_execute($stmt)) {
+        return "Berhasil menambah cabor: $name";
+    }
+    return "Gagal: " . mysqli_error($conn);
+}
+
+// Ambil semua list Pengamat
+function get_all_observers_db() {
+    global $conn;
+    $list = [];
+    $result = mysqli_query($conn, "SELECT * FROM observers ORDER BY name ASC");
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $list[] = $row;
+        }
+    }
+    return $list;
+}
+
+// Tambah Pengamat Baru
+function add_observer_person($name) {
+    global $conn;
+    $name = trim(htmlspecialchars($name));
+    if (empty($name)) return "Nama Pengamat tidak boleh kosong.";
+
+    // Cek duplikat
+    $check = mysqli_query($conn, "SELECT id FROM observers WHERE name = '$name'");
+    if (mysqli_num_rows($check) > 0) return "Pengamat '$name' sudah ada.";
+
+    $stmt = mysqli_prepare($conn, "INSERT INTO observers (name) VALUES (?)");
+    mysqli_stmt_bind_param($stmt, "s", $name);
+    if (mysqli_stmt_execute($stmt)) {
+        return "Berhasil menambah pengamat: $name";
+    }
+    return "Gagal: " . mysqli_error($conn);
 }
 ?>

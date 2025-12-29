@@ -3,12 +3,18 @@ include 'functions.php';
 
 $message = null;
 $calculatedResult = null;
-$definedObservers = ['Coach Budi', 'Coach Sarah', 'Coach Dimas'];
 
-// UPDATE: Ambil data atlet terbaru dari Database (bukan Session lagi)
+// 1. LOGIKA TAMBAH PENGAMAT BARU (POPUP)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_new_observer'])) {
+    $msgObs = add_observer_person($_POST['new_observer_name']);
+    echo "<script>alert('$msgObs');</script>";
+}
+
+// 2. AMBIL DATA
 $athletes = get_all_athletes();
+$definedObservers = get_all_observers_db(); // Ambil dari Database sekarang
 
-// Fungsi bantu klasifikasi (untuk update realtime jika manual input)
+// Fungsi bantu klasifikasi
 function getIodClassLocal($iod) {
     if ($iod >= 100) return 'Super Maximal';
     if ($iod >= 90) return 'Maximum';
@@ -29,7 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $inputHrps = $_POST['hrp'] ?? [];
         $inputRests = $_POST['rest'] ?? [];
 
-        // 1. LOOP DATA INPUT DINAMIS
         foreach ($inputPhases as $index => $pName) {
             if (trim($pName) === '') continue;
             $trainingDetails[] = [
@@ -44,40 +49,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($trainingDetails)) {
             $calculatedResult = ['error' => 'Mohon isi minimal satu baris latihan.'];
         } else {
-            // 2. HITUNG STANDAR DARI FUNGSI
             $calculatedResult = calculate_training_metrics($athleteId, $trainingDetails);
             
-            // 3. CEK OVERRIDE MANUAL VOLUME RELATIF
+            // LOGIKA HITUNG MANUAL (Jika ada override)
             if (!isset($calculatedResult['error']) && isset($_POST['volRelatif']) && $_POST['volRelatif'] > 0) {
                 $manualVolRelatif = (float)$_POST['volRelatif'];
-                
-                // Cek apakah beda dengan hasil hitungan sistem (toleransi float kecil)
                 if (abs($manualVolRelatif - $calculatedResult['volRelatif']) > 0.01) {
                     $calculatedResult['volRelatif'] = $manualVolRelatif;
-                    
-                    // Hitung ulang Absolute Density: (Vol Abs / Vol Relatif) * 100
-                    if ($manualVolRelatif > 0) {
-                        $calculatedResult['absoluteDensity'] = ($calculatedResult['volAbsolute'] / $manualVolRelatif) * 100;
-                    } else {
-                        $calculatedResult['absoluteDensity'] = 0;
-                    }
-
-                    // Hitung ulang IOD: (VolAbs * Density * Intensity) / 10000
+                    $calculatedResult['absoluteDensity'] = ($manualVolRelatif > 0) ? ($calculatedResult['volAbsolute'] / $manualVolRelatif) * 100 : 0;
                     $calculatedResult['iod'] = ($calculatedResult['volAbsolute'] * $calculatedResult['absoluteDensity'] * $calculatedResult['overallIntensity']) / 10000;
-                    
-                    // Update Kelas IOD
                     $calculatedResult['iodClass'] = getIodClassLocal($calculatedResult['iod']);
                 }
             }
 
-            // Simpan Intensitas Parsial ke array detail
             if (!isset($calculatedResult['error'])) {
                 foreach ($trainingDetails as $k => $v) {
                     $trainingDetails[$k]['partialIntensity'] = $calculatedResult['partialIntensities'][$k] ?? 0;
                 }
             }
 
-            // 4. SIMPAN KE DATABASE
+            // SIMPAN DATA
             if (isset($_POST['submit_training']) && !isset($calculatedResult['error'])) {
                 $formData = [
                     'date' => $_POST['date'],
@@ -91,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($message === 'Data latihan berhasil disimpan!') {
                     $calculatedResult = null;
                     $_POST = []; 
-                    // UPDATE: Refresh data atlet dari database lagi
                     $athletes = get_all_athletes(); 
+                    $definedObservers = get_all_observers_db(); // Refresh list observer
                 }
             }
         }
@@ -108,18 +99,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Input Latihan Custom - Sistem Manajemen Atlet</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .btn-remove {
-            background-color: #ef4444; color: white; border: none; 
-            width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; font-weight: bold;
-        }
+        .btn-remove { background-color: #ef4444; color: white; border: none; width: 30px; height: 30px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         .btn-remove:hover { background-color: #dc2626; }
-        .btn-add {
-            background-color: #3b82f6; color: white; border: none;
-            padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;
-        }
+        .btn-add { background-color: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
         .btn-add:hover { background-color: #2563eb; }
-        .manual-input { border-color: #f59e0b; background-color: #fffbeb; }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 300px; border-radius: 8px; text-align: center; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .btn-small { padding: 2px 6px; font-size: 11px; margin-left: 5px; cursor: pointer; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -153,16 +142,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    
                     <div class="form-group">
-                        <label>Pengamat</label>
-                        <select name="observer" class="form-select">
-                            <?php foreach ($definedObservers as $o) echo "<option " . ((isset($_POST['observer']) && $_POST['observer'] == $o) ? 'selected' : '') . ">$o</option>"; ?>
+                        <label>Pengamat <button type="button" class="btn-small" onclick="openModal('modalObserver')">+ Tambah</button></label>
+                        <select name="observer" class="form-select" required>
+                            <option value="">-- Pilih --</option>
+                            <?php foreach ($definedObservers as $o): ?>
+                                <option value="<?= htmlspecialchars($o['name']) ?>" <?= (isset($_POST['observer']) && $_POST['observer'] == $o['name']) ? 'selected' : '' ?>><?= htmlspecialchars($o['name']) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
+                
                 <div class="form-grid">
                     <div class="form-group"><label>Tanggal</label><input type="date" name="date" value="<?= $_POST['date'] ?? date('Y-m-d') ?>" class="form-input"></div>
-                    
                     <div class="form-group">
                         <label>Klasifikasi Latihan (Manual)</label>
                         <select name="manual_category" class="form-select" required>
@@ -227,7 +220,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div style="text-align: center; margin-bottom: 2rem; border-bottom: 1px dashed var(--border); padding-bottom: 1.5rem;">
                         <p style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.5rem;">IOD (Index of Difficulty)</p>
                         <p class="iod-highlight"><?= number_format($calculatedResult['iod'], 2) ?></p>
-                        
                         <span class="iod-badge <?= getBadgeClass($calculatedResult['iodClass']) ?>">
                             <?= $calculatedResult['iodClass'] ?>
                         </span>
@@ -236,7 +228,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="result-item"><p class="label">Volume Relatif</p><p class="value" style="color: #f59e0b;"><?= number_format($calculatedResult['volRelatif'], 2) ?> mnt</p></div>
                         <div class="result-item"><p class="label">Volume Absolute</p><p class="value"><?= number_format($calculatedResult['volAbsolute'], 2) ?> mnt</p></div>
                         <div class="result-item"><p class="label">Total Istirahat</p><p class="value" style="color: #64748b;"><?= number_format($calculatedResult['recovery'], 2) ?> mnt</p></div>
-                        
                         <div class="result-item"><p class="label">Absolute Density</p><p class="value"><?= number_format($calculatedResult['absoluteDensity'], 2) ?>%</p></div>
                         <div class="result-item"><p class="label">Overall Intensity</p><p class="value"><?= number_format($calculatedResult['overallIntensity'], 2) ?>%</p></div>
                         <div class="result-item"><p class="label">HR Max</p><p class="value text-red-600"><?= $calculatedResult['hrMax'] ?></p></div>
@@ -246,11 +237,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 
+    <div id="modalObserver" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('modalObserver')">&times;</span>
+            <h3>Tambah Pengamat</h3>
+            <form method="POST">
+                <input type="text" name="new_observer_name" class="form-input" placeholder="Nama Coach / Pengamat" required style="margin-bottom: 10px;">
+                <button type="submit" name="submit_new_observer" class="btn btn-primary">Simpan</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         function addRow() {
             const tableBody = document.querySelector('#dynamicTable tbody');
             const newRow = document.createElement('tr');
-            
             newRow.innerHTML = `
                 <td><input type="text" name="phase[]" class="table-input" placeholder="Nama Latihan" required></td>
                 <td><input type="number" step="0.01" name="duration[]" class="table-input calc-trigger" placeholder="0"></td>
@@ -261,7 +262,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button type="button" class="btn-remove" onclick="removeRow(this)">×</button>
                 </td>
             `;
-            
             tableBody.appendChild(newRow);
         }
 
@@ -274,30 +274,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function calculateVolRelatif() {
             let totalDuration = 0;
             let totalRest = 0;
-            
             const durations = document.querySelectorAll('input[name="duration[]"]');
             durations.forEach(input => {
                 const val = parseFloat(input.value);
                 if (!isNaN(val)) totalDuration += val;
             });
-            
             const rests = document.querySelectorAll('input[name="rest[]"]');
             rests.forEach(input => {
                 const val = parseFloat(input.value);
                 if (!isNaN(val)) totalRest += val;
             });
-            
-            const volRelatif = totalDuration + totalRest;
-            // Jika ada input manual volRelatif (opsional, jika Anda menambahkannya di masa depan)
         }
 
         document.addEventListener('input', function(e) {
-            if (e.target.classList.contains('calc-trigger')) {
-                calculateVolRelatif();
-            }
+            if (e.target.classList.contains('calc-trigger')) calculateVolRelatif();
         });
         
         window.addEventListener('load', calculateVolRelatif);
+        
+        // Modal Scripts
+        function openModal(id) { document.getElementById(id).style.display = "block"; }
+        function closeModal(id) { document.getElementById(id).style.display = "none"; }
+        window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = "none"; }
     </script>
 </body>
 </html>
