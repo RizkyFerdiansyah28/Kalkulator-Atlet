@@ -170,6 +170,7 @@ $html = '
         } else {
             // Loop data sesi latihan (urutkan dari terbaru ke terlama untuk tabel list)
             $trainings = array_reverse($athlete['trainings']);
+            $trainings = array_slice($trainings, 0, 1);
             
             foreach ($trainings as $t) {
                 $iodClass = $t['iod_class'] ?? '-';
