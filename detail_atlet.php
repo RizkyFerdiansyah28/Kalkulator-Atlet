@@ -37,10 +37,6 @@ function generate_history_chart_data($trainings) {
     <script type="text/javascript">
         google.charts.load('current', {'packages':['corechart']});
         google.charts.setOnLoadCallback(drawCharts);
-        
-        const darkTextStyle = { color: '#94a3b8', fontName: 'Plus Jakarta Sans', fontSize: 12 };
-        const chartBgColor = { fill: 'transparent' };
-        const gridlinesColor = { color: '#334155' };
 
         function drawCharts() {
             drawLineChart();
@@ -52,14 +48,69 @@ function generate_history_chart_data($trainings) {
             
             var options = { 
                 title: 'Perkembangan IOD (Index of Difficulty)', 
-                titleTextStyle: { color: '#f1f5f9', fontSize: 16 },
-                backgroundColor: chartBgColor,
+                titleTextStyle: { 
+                    color: '#1e293b', 
+                    fontSize: 18, 
+                    bold: true 
+                },
+                backgroundColor: { fill: 'white' },
                 curveType: 'function', 
-                legend: { position: 'bottom', textStyle: darkTextStyle }, 
-                colors: ['#38bdf8'], 
-                hAxis: { textStyle: darkTextStyle, gridlines: gridlinesColor },
-                vAxis: { title: 'Skor IOD', textStyle: darkTextStyle, titleTextStyle: darkTextStyle, gridlines: gridlinesColor, minValue: 0 },
-                pointSize: 6
+                legend: { 
+                    position: 'bottom', 
+                    textStyle: { 
+                        color: '#475569', 
+                        fontSize: 13, 
+                        bold: true 
+                    } 
+                }, 
+                colors: ['#2563eb'], 
+                lineWidth: 3,
+                pointSize: 7,
+                pointShape: 'circle',
+                hAxis: { 
+                    textStyle: { 
+                        color: '#1e293b', 
+                        fontSize: 12, 
+                        bold: true 
+                    }, 
+                    gridlines: { 
+                        color: '#94a3b8', 
+                        count: -1 
+                    },
+                    baselineColor: '#475569'
+                },
+                vAxis: { 
+                    title: 'Skor IOD', 
+                    textStyle: { 
+                        color: '#1e293b', 
+                        fontSize: 12, 
+                        bold: true 
+                    }, 
+                    titleTextStyle: { 
+                        color: '#475569', 
+                        fontSize: 13, 
+                        bold: true 
+                    }, 
+                    gridlines: { 
+                        color: '#94a3b8', 
+                        count: 6 
+                    },
+                    baselineColor: '#475569',
+                    minValue: 0,
+                    format: '#'
+                },
+                chartArea: {
+                    width: '85%',
+                    height: '70%',
+                    backgroundColor: 'white'
+                },
+                tooltip: {
+                    textStyle: { 
+                        fontSize: 13,
+                        bold: false
+                    },
+                    showColorCode: true
+                }
             };
             var chart = new google.visualization.LineChart(document.getElementById('line_chart_div'));
             chart.draw(data, options);
@@ -82,87 +133,237 @@ function generate_history_chart_data($trainings) {
 
     <main class="container">
         
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <a href="list_athlete.php" class="back-button" style="margin-bottom: 0;">← Kembali ke Daftar</a>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <a href="list_athlete.php" class="back-button" style="margin-bottom: 0;">
+                <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Kembali ke Daftar
+            </a>
             
-            <a href="cetak_pdf.php?athlete_id=<?= $selectedAthlete['id'] ?>" target="_blank" class="btn btn-primary" style="background-color: #ef4444; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; display: inline-flex; align-items: center;">
+            <a href="cetak_pdf.php?athlete_id=<?= $selectedAthlete['id'] ?>" target="_blank" class="btn btn-danger" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
                 Download PDF Report
             </a>
         </div>
 
-        <div class="panel">
-            <h1><?= htmlspecialchars($selectedAthlete['name']) ?></h1>
-            
-            <div style="background: rgba(15, 23, 42, 0.5); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
-                <div class="history-grid">
-                    <div class="history-item"><p class="label">Gender</p><p class="value"><?= htmlspecialchars($selectedAthlete['gender'] ?? '-') ?></p></div>
-                    <div class="history-item"><p class="label">Usia</p><p class="value"><?= htmlspecialchars($selectedAthlete['age'] ?? '-') ?> th</p></div>
-                    <div class="history-item"><p class="label">Asal</p><p class="value"><?= htmlspecialchars($selectedAthlete['origin'] ?? '-') ?></p></div>
-                    <div class="history-item"><p class="label">Cabor</p><p class="value"><?= htmlspecialchars($selectedAthlete['sport'] ?? '-') ?></p></div>
-                    <div class="history-item"><p class="label">Berat</p><p class="value"><?= htmlspecialchars($selectedAthlete['weight'] ?? '-') ?> kg</p></div>
-                    <div class="history-item"><p class="label">Tinggi</p><p class="value"><?= htmlspecialchars($selectedAthlete['height'] ?? '-') ?> cm</p></div>
+        <!-- ATHLETE PROFILE HEADER -->
+        <div class="athlete-profile-header">
+            <div class="profile-avatar">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+            </div>
+            <div class="profile-info">
+                <h1 class="profile-name"><?= htmlspecialchars($selectedAthlete['name']) ?></h1>
+                <div class="profile-meta">
+                    <span class="meta-item">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                        <?= htmlspecialchars($selectedAthlete['sport'] ?? '-') ?>
+                    </span>
+                    <span class="meta-item">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        <?= htmlspecialchars($selectedAthlete['origin'] ?? '-') ?>
+                    </span>
+                    <span class="meta-item">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <?= count($selectedAthlete['trainings'] ?? []) ?> Sesi Latihan
+                    </span>
+                </div>
+            </div>
+            <div class="profile-iod-display">
+                <div class="iod-circle">
+                    <div class="iod-number"><?= !empty($selectedAthlete['trainings']) ? number_format((float)end($selectedAthlete['trainings'])['iod'], 1) : '0' ?></div>
+                    <div class="iod-text">IOD Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS GRID -->
+        <div class="detail-stats-grid">
+            <div class="detail-stat-card">
+                <div class="stat-icon-circle" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-label">Gender</p>
+                    <p class="stat-value"><?= htmlspecialchars($selectedAthlete['gender'] ?? '-') ?></p>
                 </div>
             </div>
             
-            <hr style="margin: 1rem 0; border: 0; border-top: 1px solid var(--border);">
+            <div class="detail-stat-card">
+                <div class="stat-icon-circle" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-label">Usia</p>
+                    <p class="stat-value"><?= htmlspecialchars($selectedAthlete['age'] ?? '-') ?> <span style="font-size: 1rem; font-weight: 500;">tahun</span></p>
+                </div>
+            </div>
             
-            <?php if (!empty($selectedAthlete['trainings'])): ?>
-                <div id="line_chart_div" style="width: 100%; height: 300px; margin-bottom: 2rem;"></div>
-            <?php else: ?>
-                <p style="text-align: center; padding: 3rem; background: rgba(15, 23, 42, 0.3); border-radius: 0.5rem; color: var(--text-muted);">Belum ada riwayat latihan untuk atlet ini.</p>
-            <?php endif; ?>
+            <div class="detail-stat-card">
+                <div class="stat-icon-circle" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-label">Berat Badan</p>
+                    <p class="stat-value"><?= htmlspecialchars($selectedAthlete['weight'] ?? '-') ?> <span style="font-size: 1rem; font-weight: 500;">kg</span></p>
+                </div>
+            </div>
+            
+            <div class="detail-stat-card">
+                <div class="stat-icon-circle" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-label">Tinggi Badan</p>
+                    <p class="stat-value"><?= htmlspecialchars($selectedAthlete['height'] ?? '-') ?> <span style="font-size: 1rem; font-weight: 500;">cm</span></p>
+                </div>
+            </div>
+        </div>
 
-            <h3>Riwayat Latihan</h3>
-            <?php foreach (array_reverse($selectedAthlete['trainings']) as $t): ?>
-                <div class="training-detail" style="margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.5); padding: 1rem; border-bottom: 1px solid var(--border);">
-                        <div>
-                            <strong style="color: var(--primary);"><?= $t['date'] ?></strong> | Observer: <span style="color: var(--text-muted);"><?= $t['observer'] ?></span>
-                            
-                            <div style="margin-top: 4px;">
-                                <span style="font-size: 0.85rem; color: #cbd5e1; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">
-                                    Jenis Latihan: <?= $t['manual_category'] ?? '-' ?>
-                                </span>
+        <!-- CHART SECTION -->
+        <?php if (!empty($selectedAthlete['trainings'])): ?>
+        <div class="panel" style="margin-bottom: 2rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <div style="width: 4px; height: 2rem; background: linear-gradient(180deg, #1e3a8a 0%, #3b82f6 100%); border-radius: 2px;"></div>
+                <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">Grafik Perkembangan IOD</h2>
+            </div>
+            <div id="line_chart_div" style="width: 100%; height: 350px;"></div>
+        </div>
+        <?php else: ?>
+        <div class="panel empty-state" style="margin-bottom: 2rem;">
+            <svg style="width: 64px; height: 64px; opacity: 0.3; color: var(--text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            <p style="font-size: 1.125rem; font-weight: 600; margin: 1rem 0 0.5rem 0; color: var(--text-primary);">Belum Ada Data Latihan</p>
+            <p style="color: var(--text-muted); font-size: 0.938rem;">Mulai tambahkan riwayat latihan untuk melihat grafik perkembangan</p>
+        </div>
+        <?php endif; ?>
+
+        <!-- TRAINING HISTORY -->
+        <div class="panel">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <div style="width: 4px; height: 2rem; background: linear-gradient(180deg, #059669 0%, #10b981 100%); border-radius: 2px;"></div>
+                <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">Riwayat Latihan</h2>
+            </div>
+            
+            <?php if (empty($selectedAthlete['trainings'])): ?>
+            <div class="empty-state">
+                <svg style="width: 64px; height: 64px; opacity: 0.3; color: var(--text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <p style="font-size: 1.125rem; font-weight: 600; margin: 1rem 0 0.5rem 0; color: var(--text-primary);">Tidak Ada Riwayat Latihan</p>
+                <p style="color: var(--text-muted); font-size: 0.938rem;">Belum ada data latihan yang tercatat untuk atlet ini</p>
+            </div>
+            <?php else: ?>
+            <?php 
+            // Warna SOLID BOLD DARK untuk header (baris 1) - LEBIH GELAP
+            $headerColors = [
+                '#1e3a8a', // Blue dark bold
+                '#15803d', // Green dark bold
+                '#c2410c', // Orange dark bold
+                '#be185d', // Pink dark bold
+                '#4338ca', // Indigo dark bold
+                '#b91c1c', // Red dark bold
+            ];
+            
+            // Warna SOFT untuk table header (baris 2)
+            $tableHeaderColors = [
+                '#dbeafe', // Blue light
+                '#dcfce7', // Green light
+                '#fef3c7', // Yellow light
+                '#fce7f3', // Pink light
+                '#e0e7ff', // Indigo light
+                '#ffedd5', // Orange light
+            ];
+            
+            foreach (array_reverse($selectedAthlete['trainings']) as $index => $t): 
+                $colorIndex = $index % count($headerColors);
+            ?>
+                <div class="training-history-card" style="border-left: 3px solid <?= $headerColors[$colorIndex] ?>;">
+                    <!-- BARIS 1: SOLID COLOR -->
+                    <div class="training-header" style="background: <?= $headerColors[$colorIndex] ?>;">
+                        <div class="training-header-left">
+                            <div class="training-date" style="color: white;">
+                                <svg style="width: 16px; height: 16px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                <?= date('d M Y', strtotime($t['date'])) ?>
                             </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">IOD SCORE</span><br>
-                            <span style="font-size: 1.5rem; font-weight: bold; color: white;">
-                                <?= isset($t['iod']) ? number_format($t['iod'], 2) : ($t['performance'] ?? '-') ?>
+                            <div class="training-observer" style="color: rgba(255, 255, 255, 0.9);">
+                                <svg style="width: 14px; height: 14px; color: rgba(255, 255, 255, 0.9);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                <?= $t['observer'] ?>
+                            </div>
+                            <span class="training-type-badge" style="background: white; border: 2px solid white; color: <?= $headerColors[$colorIndex] ?>;">
+                                ● <?= strtoupper($t['manual_category'] ?? '-') ?>
                             </span>
+                        </div>
+                        <div class="training-iod-badge">
+                            <div class="iod-score-label" style="color: rgba(255, 255, 255, 0.9);">IOD SCORE</div>
+                            <div class="iod-score-number" style="color: white;">
+                                <?= isset($t['iod']) ? number_format($t['iod'], 2) : ($t['performance'] ?? '-') ?>
+                            </div>
                             <?php if(isset($t['iodClass'])): ?>
-                                <br><span class="iod-badge <?= getBadgeClass($t['iodClass']) ?>" style="font-size: 0.7rem; padding: 2px 8px; margin-top: 0;">
+                                <span class="iod-badge <?= getBadgeClass($t['iodClass']) ?>" style="background: white; color: <?= $headerColors[$colorIndex] ?>; border: none;">
                                     <?= $t['iodClass'] ?>
                                 </span>
                             <?php endif; ?>
                         </div>
                     </div>
+                    
                     <?php if (isset($t['details'])): ?>
-                        <div class="table-container" style="border: none; border-radius: 0;">
-                            <table class="input-table" style="font-size: 0.85rem; border: none;">
-                                <tr style="background: rgba(15, 23, 42, 0.5);">
-                                    <th>Fase</th>
-                                    <th>Durasi</th>
-                                    <th>Set</th>
-                                    <th>HRP</th>
-                                    <th>Partial Int.</th>
-                                    <th>Rest</th>
+                    <div class="training-details-table">
+                        <table>
+                            <!-- BARIS 2: SOFT COLOR -->
+                            <thead>
+                                <tr style="background: <?= $tableHeaderColors[$colorIndex] ?>;">
+                                    <th style="color: <?= $headerColors[$colorIndex] ?>;">FASE</th>
+                                    <th style="color: <?= $headerColors[$colorIndex] ?>;">DURASI</th>
+                                    <th style="color: <?= $headerColors[$colorIndex] ?>;">SET</th>
+                                    <th style="color: <?= $headerColors[$colorIndex] ?>;">HRP</th>
+                                    <th style="color: <?= $headerColors[$colorIndex] ?>;">PARTIAL INT.</th>
+                                    <th style="color: <?= $headerColors[$colorIndex] ?>;">REST</th>
                                 </tr>
+                            </thead>
+                            <!-- BARIS 3: WHITE BACKGROUND -->
+                            <tbody>
                                 <?php foreach ($t['details'] as $d): ?>
-                                    <tr>
-                                        <td><?= $d['phase'] ?></td>
-                                        <td><?= $d['duration'] ?>'</td>
-                                        <td><?= $d['set'] ?? '-' ?></td>
-                                        <td><?= $d['hrp'] ?></td>
-                                        <td><?= isset($d['partialIntensity']) ? number_format($d['partialIntensity'], 1) : '-' ?>%</td>
-                                        <td style="color: #fb923c; font-weight: bold;"><?= $d['rest_after'] ?>'</td>
-                                    </tr>
+                                <tr style="background: white;">
+                                    <td><strong style="color: <?= $headerColors[$colorIndex] ?>;"><?= strtoupper($d['phase']) ?></strong></td>
+                                    <td><?= $d['duration'] ?>'</td>
+                                    <td><?= $d['set'] ?? '-' ?></td>
+                                    <td><?= $d['hrp'] ?></td>
+                                    <td><?= isset($d['partialIntensity']) ? number_format($d['partialIntensity'], 1) : '-' ?>%</td>
+                                    <td style="color: #ea580c; font-weight: 700;"><?= $d['rest_after'] ?>'</td>
+                                </tr>
                                 <?php endforeach; ?>
-                            </table>
-                        </div>
+                            </tbody>
+                        </table>
+                    </div>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </main>
 </body>

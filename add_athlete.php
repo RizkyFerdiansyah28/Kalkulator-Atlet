@@ -26,12 +26,28 @@ $sportsList = get_all_sports();
     <title>Input Atlet - Sistem Manajemen Atlet</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Style Modal Popup */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 300px; border-radius: 8px; text-align: center; }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: black; }
-        .btn-small { padding: 4px 8px; font-size: 12px; margin-left: 5px; cursor: pointer; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 4px; }
+        .btn-small { 
+            padding: 4px 10px; 
+            font-size: 11px; 
+            margin-left: 8px; 
+            cursor: pointer; 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+        }
+        .btn-small:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(16, 185, 129, 0.3);
+        }
     </style>
 </head>
 <body>

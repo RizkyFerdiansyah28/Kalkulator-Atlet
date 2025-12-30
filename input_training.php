@@ -99,16 +99,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Input Latihan Custom - Sistem Manajemen Atlet</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .btn-remove { background-color: #ef4444; color: white; border: none; width: 30px; height: 30px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .btn-remove:hover { background-color: #dc2626; }
-        .btn-add { background-color: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-        .btn-add:hover { background-color: #2563eb; }
+        .btn-remove { 
+            background-color: #ef4444; 
+            color: white; 
+            border: none; 
+            width: 32px; 
+            height: 32px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            font-size: 20px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+        }
+        .btn-remove:hover { 
+            background-color: #dc2626; 
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+        }
+        .btn-add { 
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        .btn-add:hover { 
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
         
         /* Modal Styles */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 300px; border-radius: 8px; text-align: center; }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .btn-small { padding: 2px 6px; font-size: 11px; margin-left: 5px; cursor: pointer; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 4px; }
+        .btn-small { 
+            padding: 4px 10px; 
+            font-size: 11px; 
+            margin-left: 8px; 
+            cursor: pointer; 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+        }
+        .btn-small:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(16, 185, 129, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -130,44 +184,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if (isset($calculatedResult['error'])): ?><div class="alert-box" style="background-color:#fee2e2; color:#991b1b;"><?= htmlspecialchars($calculatedResult['error']) ?></div><?php endif; ?>
 
         <div class="panel">
-            <h2>Input Latihan Custom</h2>
+            <div style="border-bottom: 3px solid var(--primary); padding-bottom: 1rem; margin-bottom: 2rem;">
+                <h2 style="margin: 0;">Input Latihan</h2>
+                <p style="color: var(--text-muted); font-size: 0.938rem; margin: 0.5rem 0 0 0;">
+                    Masukkan detail latihan dan hitung IOD secara otomatis
+                </p>
+            </div>
+            
             <form method="POST" action="" id="trainingForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Pilih Atlet</label>
-                        <select name="athleteId" class="form-select" required>
-                            <option value="">-- Pilih --</option>
-                            <?php foreach ($athletes as $athlete): ?>
-                                <option value="<?= $athlete['id'] ?>" <?= (isset($_POST['athleteId']) && $_POST['athleteId'] == $athlete['id']) ? 'selected' : '' ?>><?= $athlete['name'] ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                <!-- Section: Informasi Dasar -->
+                <div style="background: var(--bg-main); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 2rem;">
+                    <h3 style="font-size: 1rem; font-weight: 700; color: var(--primary); margin: 0 0 1.25rem 0; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Informasi Dasar
+                    </h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Pilih Atlet <span style="color: var(--danger);">*</span></label>
+                            <select name="athleteId" class="form-select" required>
+                                <option value="">-- Pilih Atlet --</option>
+                                <?php foreach ($athletes as $athlete): ?>
+                                    <option value="<?= $athlete['id'] ?>" <?= (isset($_POST['athleteId']) && $_POST['athleteId'] == $athlete['id']) ? 'selected' : '' ?>><?= $athlete['name'] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Pengamat <span style="color: var(--danger);">*</span>
+                                <button type="button" class="btn-small" onclick="openModal('modalObserver')">+ Baru</button>
+                            </label>
+                            <select name="observer" class="form-select" required>
+                                <option value="">-- Pilih Pengamat --</option>
+                                <?php foreach ($definedObservers as $o): ?>
+                                    <option value="<?= htmlspecialchars($o['name']) ?>" <?= (isset($_POST['observer']) && $_POST['observer'] == $o['name']) ? 'selected' : '' ?>><?= htmlspecialchars($o['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>Pengamat <button type="button" class="btn-small" onclick="openModal('modalObserver')">+ Tambah</button></label>
-                        <select name="observer" class="form-select" required>
-                            <option value="">-- Pilih --</option>
-                            <?php foreach ($definedObservers as $o): ?>
-                                <option value="<?= htmlspecialchars($o['name']) ?>" <?= (isset($_POST['observer']) && $_POST['observer'] == $o['name']) ? 'selected' : '' ?>><?= htmlspecialchars($o['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Tanggal <span style="color: var(--danger);">*</span></label>
+                            <input type="date" name="date" value="<?= $_POST['date'] ?? date('Y-m-d') ?>" class="form-input" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Klasifikasi Latihan <span style="color: var(--danger);">*</span></label>
+                            <select name="manual_category" class="form-select" required>
+                                <option value="">-- Pilih Klasifikasi --</option>
+                                <option value="Ringan" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Ringan') ? 'selected' : '' ?>>🟢 Ringan</option>
+                                <option value="Sedang" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Sedang') ? 'selected' : '' ?>>🟡 Sedang</option>
+                                <option value="Berat" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Berat') ? 'selected' : '' ?>>🔴 Berat</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="form-grid">
-                    <div class="form-group"><label>Tanggal</label><input type="date" name="date" value="<?= $_POST['date'] ?? date('Y-m-d') ?>" class="form-input"></div>
-                    <div class="form-group">
-                        <label>Klasifikasi Latihan (Manual)</label>
-                        <select name="manual_category" class="form-select" required>
-                            <option value="">-- Pilih --</option>
-                            <option value="Ringan" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Ringan') ? 'selected' : '' ?>>Ringan</option>
-                            <option value="Sedang" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Sedang') ? 'selected' : '' ?>>Sedang</option>
-                            <option value="Berat" <?= (isset($_POST['manual_category']) && $_POST['manual_category'] == 'Berat') ? 'selected' : '' ?>>Berat</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
+                <!-- Section: Detail Latihan -->
+                <div style="background: var(--bg-main); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 1rem; font-weight: 700; color: var(--accent); margin: 0 0 1.25rem 0; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Detail Latihan
+                    </h3>
 
                 <div class="table-container">
                     <table class="input-table" id="dynamicTable">
@@ -203,34 +277,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </table>
                 </div>
 
-                <div style="margin-top: 10px; margin-bottom: 20px;">
-                    <button type="button" class="btn-add" onclick="addRow()">+ Tambah Baris</button>
+                <div style="margin-top: 1rem;">
+                    <button type="button" class="btn-add" onclick="addRow()">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Tambah Baris
+                    </button>
+                </div>
                 </div>
 
-                <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                    <button type="submit" name="calculate" class="btn btn-primary">Hitung Rumus</button>
+                <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="submit" name="calculate" class="btn btn-primary" style="min-width: 160px;">
+                        <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        Hitung IOD
+                    </button>
                     <?php if ($calculatedResult && !isset($calculatedResult['error'])): ?>
-                        <button type="submit" name="submit_training" class="btn btn-success">Simpan Riwayat</button>
+                        <button type="submit" name="submit_training" class="btn btn-success" style="min-width: 160px;">
+                            <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Simpan Data
+                        </button>
                     <?php endif; ?>
                 </div>
             </form>
 
             <?php if ($calculatedResult && !isset($calculatedResult['error'])): ?>
-                <div class="result-box">
-                    <div style="text-align: center; margin-bottom: 2rem; border-bottom: 1px dashed var(--border); padding-bottom: 1.5rem;">
-                        <p style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.5rem;">IOD (Index of Difficulty)</p>
-                        <p class="iod-highlight"><?= number_format($calculatedResult['iod'], 2) ?></p>
-                        <span class="iod-badge <?= getBadgeClass($calculatedResult['iodClass']) ?>">
-                            <?= $calculatedResult['iodClass'] ?>
-                        </span>
+                <div class="result-box" style="margin-top: 2rem; border: 2px solid var(--success); background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+                    <div style="text-align: center; margin-bottom: 2rem; border-bottom: 2px dashed var(--success); padding-bottom: 1.5rem;">
+                        <div style="display: inline-block; background: white; padding: 1.5rem 2.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);">
+                            <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">IOD Score</p>
+                            <p class="iod-highlight" style="color: var(--success);"><?= number_format($calculatedResult['iod'], 2) ?></p>
+                            
+                            <span class="iod-badge <?= getBadgeClass($calculatedResult['iodClass']) ?>" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                <?= $calculatedResult['iodClass'] ?>
+                            </span>
+                        </div>
                     </div>
-                    <div class="form-grid">
-                        <div class="result-item"><p class="label">Volume Relatif</p><p class="value" style="color: #f59e0b;"><?= number_format($calculatedResult['volRelatif'], 2) ?> mnt</p></div>
-                        <div class="result-item"><p class="label">Volume Absolute</p><p class="value"><?= number_format($calculatedResult['volAbsolute'], 2) ?> mnt</p></div>
-                        <div class="result-item"><p class="label">Total Istirahat</p><p class="value" style="color: #64748b;"><?= number_format($calculatedResult['recovery'], 2) ?> mnt</p></div>
-                        <div class="result-item"><p class="label">Absolute Density</p><p class="value"><?= number_format($calculatedResult['absoluteDensity'], 2) ?>%</p></div>
-                        <div class="result-item"><p class="label">Overall Intensity</p><p class="value"><?= number_format($calculatedResult['overallIntensity'], 2) ?>%</p></div>
-                        <div class="result-item"><p class="label">HR Max</p><p class="value text-red-600"><?= $calculatedResult['hrMax'] ?></p></div>
+                    <div class="form-grid" style="gap: 1rem;">
+                        <div class="result-item">
+                            <p class="label">Volume Relatif</p>
+                            <p class="value" style="color: #d97706;"><?= number_format($calculatedResult['volRelatif'], 2) ?> <span style="font-size: 1rem; font-weight: 600;">mnt</span></p>
+                        </div>
+                        <div class="result-item">
+                            <p class="label">Volume Absolute</p>
+                            <p class="value" style="color: var(--primary);"><?= number_format($calculatedResult['volAbsolute'], 2) ?> <span style="font-size: 1rem; font-weight: 600;">mnt</span></p>
+                        </div>
+                        <div class="result-item">
+                            <p class="label">Total Istirahat</p>
+                            <p class="value" style="color: #64748b;"><?= number_format($calculatedResult['recovery'], 2) ?> <span style="font-size: 1rem; font-weight: 600;">mnt</span></p>
+                        </div>
+                        
+                        <div class="result-item">
+                            <p class="label">Absolute Density</p>
+                            <p class="value" style="color: var(--accent);"><?= number_format($calculatedResult['absoluteDensity'], 2) ?><span style="font-size: 1rem; font-weight: 600;">%</span></p>
+                        </div>
+                        <div class="result-item">
+                            <p class="label">Overall Intensity</p>
+                            <p class="value" style="color: var(--success);"><?= number_format($calculatedResult['overallIntensity'], 2) ?><span style="font-size: 1rem; font-weight: 600;">%</span></p>
+                        </div>
+                        <div class="result-item">
+                            <p class="label">HR Max</p>
+                            <p class="value" style="color: var(--danger);"><?= $calculatedResult['hrMax'] ?> <span style="font-size: 1rem; font-weight: 600;">bpm</span></p>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
