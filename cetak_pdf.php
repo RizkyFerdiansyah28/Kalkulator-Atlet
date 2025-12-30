@@ -150,6 +150,11 @@ $html = '
                 <td class="label">Usia</td><td>: '.$athlete['age'].' Tahun</td>
                 <td class="label">Postur</td><td>: '.$athlete['height'].' cm / '.$athlete['weight'].' kg</td>
             </tr>
+            <tr>
+                <td class="label">HR Max</td>
+                <td>: '. (isset($athlete['hr_max']) && $athlete['hr_max'] > 0 ? $athlete['hr_max'] : (220 - $athlete['age'])) .' bpm</td>
+                <td class="label"></td><td></td>
+            </tr>
         </table>
     </div>';
 
@@ -170,7 +175,7 @@ $html = '
         } else {
             // Loop data sesi latihan (urutkan dari terbaru ke terlama untuk tabel list)
             $trainings = array_reverse($athlete['trainings']);
-            $trainings = array_slice($trainings, 0, 1);
+            
             
             foreach ($trainings as $t) {
                 $iodClass = $t['iod_class'] ?? '-';

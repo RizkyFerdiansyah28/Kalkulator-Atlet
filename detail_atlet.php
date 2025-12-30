@@ -201,6 +201,24 @@ function generate_history_chart_data($trainings) {
                     <p class="stat-value"><?= htmlspecialchars($selectedAthlete['gender'] ?? '-') ?></p>
                 </div>
             </div>
+        
+            <div class="detail-stat-card">
+                <div class="stat-icon-circle" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-label">HR Max</p>
+                    <?php 
+                        // Tampilkan HR Max dari DB, jika kosong gunakan rumus 220-Usia
+                        echo isset($selectedAthlete['hr_max']) && $selectedAthlete['hr_max'] > 0 
+                             ? htmlspecialchars($selectedAthlete['hr_max']) 
+                             : (220 - ($selectedAthlete['age'] ?? 20)); 
+                        ?> 
+                        <span style="font-size: 1rem; font-weight: 500;">bpm</span>
+                </div>
+            </div>
             
             <div class="detail-stat-card">
                 <div class="stat-icon-circle" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
@@ -223,6 +241,12 @@ function generate_history_chart_data($trainings) {
                 <div>
                     <p class="stat-label">Berat Badan</p>
                     <p class="stat-value"><?= htmlspecialchars($selectedAthlete['weight'] ?? '-') ?> <span style="font-size: 1rem; font-weight: 500;">kg</span></p>
+                </div>
+
+                <div class="stat-icon-circle" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
                 </div>
             </div>
             
